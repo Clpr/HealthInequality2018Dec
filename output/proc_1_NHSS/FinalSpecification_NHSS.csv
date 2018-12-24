@@ -1,0 +1,9 @@
+"","IndicatorName","illnessratio","illnessday","chronicratio"
+"1","income",TRUE,TRUE,TRUE
+"2","edu",TRUE,TRUE,TRUE
+"14","urban",FALSE,FALSE,TRUE
+"5","male",FALSE,FALSE,TRUE
+"6","age65",TRUE,FALSE,TRUE
+"10","bedday",TRUE,TRUE,TRUE
+"11","permedicost",TRUE,TRUE,TRUE
+"12","perhospitalcost",FALSE,FALSE,TRUE
