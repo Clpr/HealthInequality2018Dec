@@ -11,6 +11,7 @@
 # -------------------------------------
 ## SECTION 0: ENVIRONMENT
 library(sqldf)  # sql enquiry
+library(openxlsx)  # easy xlsx IO
 source("./src/mathtools.r")  # math tools, e.g. Lorenz, Theil, descriptive stats
 source("./src/mapplots.r")  # tools of map plots, using ggplot2
 # environment par dict
@@ -21,21 +22,21 @@ envCHARLS$Output <- "./output/proc_2_CHARLS/"  # alter output directory
 # -------------------------------------
 ## SECTION 1: GENERAL DESCRIPTIVE STATISTICS
 cat("\nGeneral descriptive statistics of CHARLS dataset:\n")
-cat("(we do not summarize urban because it is a flag variable)\n")
 cat("(please note: the income now is the residuals of income ~ edu)\n")
-# NOTE: do this section for the full set of 3 CHARLS final specifications
-
-# 1.1 get a namelist of all numeric variables, both Y and X
-tmp <- c( envCHARLS$Ynames, as.character(df_FinalSpecif_CHARLS$IndicatorName) )
-tmp <- base::setdiff(tmp, envCHARLS$Xisflag)  # drop flag variables (urban), they/it need(s) special description
-# 1.2 slice a compact dataset only contains variales in final specifications
-tmp <- df_CHARLS[,tmp]
-# 1.3 summary the compact dataset
-df_Descript_CHARLS <- func_DescrStat(tmp)
-# 1.4 print
-print(df_Descript_CHARLS)
-# 1.5 output
-write.csv(df_Descript_CHARLS,paste(sep="",envCHARLS$Output,"Descript_CHARLS.csv"))
+cat("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+cat("PLEASE NOTE: because we have normalized PCA components, we only do descriptive statistics for income & edu!!!!!!")
+cat("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+# --------------
+li_Descript_CHARLS <- list()  # a list of descriptive statistics
+for(tmpYname in envCHARLS$Ynames){
+    # 1.1 get a namelist of all numeric variables, both Y and Xcore
+    tmp <- c( tmpYname, envCHARLS$Xcore )
+    li_Descript_CHARLS[[tmpYname]] <- func_DescrStat( li_Dat_CHARLS[[tmpYname]][,tmp] )
+    # 1.2 print
+    print(li_Descript_CHARLS[[tmpYname]]); cat("-----------------------------------------\n")
+}
+# output to xlsx
+openxlsx::write.xlsx(li_Descript_CHARLS, paste(sep="",envCHARLS$Output,"Descript_CHARLS.xlsx")  )
 
 
 
@@ -47,27 +48,27 @@ write.csv(df_Descript_CHARLS,paste(sep="",envCHARLS$Output,"Descript_CHARLS.csv"
 # 2.0 prepare a df for Gini coefs
 df_Gini_CHARLS <- data.frame(
     year = c(2011, 2013, 2015),   # years
-    cities = c( sum(df_CHARLS$year == 2011),sum(df_CHARLS$year == 2013),sum(df_CHARLS$year == 2015)  ),  # number of counties in every year's data
-    OUTP1M_RATIO = NA, # prevalence
+    cities = c( sum(df_CHARLS$year == 2011),sum(df_CHARLS$year == 2013),sum(df_CHARLS$year == 2015)  ),  # number of cities in every year's data
+    OUTP1M_RATIO = NA,
     CHRONIC_RATIO = NA
 )
 
 # 2.1 use functions in mathtools.r to compute Lorenz Curve & Gini coefficients
-for(tmpYear in df_Gini_CHARLS$year){  # loop on years
-    for(tmpYname in envCHARLS$Ynames){  # loop on health outcomes
+# NOTE: please refer to mathtools.r for how we calculated the both
+#       and, if you want to see the plotting of Lorenz Curve, you may DIY (using tmp$LorenzX and tmp$LorenzY)
+for(tmpYear in df_Gini_CHARLS$year){
+    for(tmpYname in envCHARLS$Ynames){
         # 2.1.1 compute Lorenz Curve & Gini in specific year
-        eval(parse(text=paste(sep="",
-                              "tmp <- LorenzCurve( df_CHARLS$",tmpYname,"[df_CHARLS$",envCHARLS$flagT," == ",tmpYear,"] )"
-        )))
+        # eval(parse(text=paste(sep="",
+        #     "tmp <- LorenzCurve( df_CHARLS$",tmpYname,"[df_CHARLS$",envCHARLS$flagT," == ",tmpYear,"] )"
+        # ))) 
+        tmp <- li_Dat_CHARLS[[tmpYname]]
+        tmp <- LorenzCurve( tmp[ tmp[,envCHARLS$flagT] == tmpYear ,tmpYname] )
         # 2.1.2 save Gini coef
-        eval(parse(text=paste(sep="",
-                              "df_Gini_CHARLS$",tmpYname,"[df_Gini_CHARLS$year == ",tmpYear,"] <- tmp$GiniIdx"
-        )))
+        df_Gini_CHARLS[,tmpYname][df_Gini_CHARLS$year == tmpYear] <- tmp$GiniIdx
     }
 }
-
-# 2.2 print info
-cat("\nThe city-level Gini coefs in every year of CHARLS dataset are:\n")
+# print & output to xlsx
 print(df_Gini_CHARLS)
 
 # NOTE: the results will be output to a csv file with other kinds of indices, later
@@ -85,7 +86,7 @@ print(df_Gini_CHARLS)
 df_Theil1_CHARLS <- data.frame(
     year = c(2011, 2013, 2015),   # years
     cities = c( sum(df_CHARLS$year == 2011),sum(df_CHARLS$year == 2013),sum(df_CHARLS$year == 2015)  ),  # number of counties in every year's data
-    OUTP1M_RATIO = NA, # prevalence
+    OUTP1M_RATIO = NA, 
     CHRONIC_RATIO = NA
 )
 df_Theil2_CHARLS <- df_Theil1_CHARLS
@@ -93,19 +94,13 @@ df_Theil2_CHARLS <- df_Theil1_CHARLS
 # 3.1 use functions in mathtools.r to do computing
 for(tmpYear in df_Gini_CHARLS$year){  # loop on years
     for(tmpYname in envCHARLS$Ynames){  # loop on health outcomes
+        # slice a temp dataset
+        tmpdf <- li_Dat_CHARLS[[tmpYname]]
         # 3.1.1 compute Theil-I & Theil-II in a specific year
-        eval(parse(text=paste(sep="",
-                              "tmp <- Theil( df_CHARLS$",tmpYname,"[df_CHARLS$",envCHARLS$flagT," == ",tmpYear,"], Type = \"T\" )"
-        )))
-        eval(parse(text=paste(sep="",
-                              "df_Theil1_CHARLS$",tmpYname,"[df_Theil1_CHARLS$year == ",tmpYear,"] <- tmp"
-        )))
-        eval(parse(text=paste(sep="",
-                              "tmp <- Theil( df_CHARLS$",tmpYname,"[df_CHARLS$",envCHARLS$flagT," == ",tmpYear,"], Type = \"L\" )"
-        )))
-        eval(parse(text=paste(sep="",
-                              "df_Theil2_CHARLS$",tmpYname,"[df_Theil2_CHARLS$year == ",tmpYear,"] <- tmp"
-        )))
+        tmp <- Theil( tmpdf[,tmpYname][tmpdf[,envCHARLS$flagT] == tmpYear], Type = "T" )
+        df_Theil1_CHARLS[,tmpYname][ df_Theil1_CHARLS$year == tmpYear ] <- tmp
+        tmp <- Theil( tmpdf[,tmpYname][tmpdf[,envCHARLS$flagT] == tmpYear], Type = "L" )
+        df_Theil2_CHARLS[,tmpYname][ df_Theil2_CHARLS$year == tmpYear ] <- tmp
     }
 }
 
@@ -130,7 +125,7 @@ print(df_Theil2_CHARLS)
 df_CoefVar_CHARLS <- data.frame(
     year = c(2011, 2013, 2015),   # years
     cities = c( sum(df_CHARLS$year == 2011),sum(df_CHARLS$year == 2013),sum(df_CHARLS$year == 2015)  ),  # number of counties in every year's data
-    OUTP1M_RATIO = NA, # prevalence
+    OUTP1M_RATIO = NA,
     CHRONIC_RATIO = NA
 )
 df_Variance_CHARLS <- df_CoefVar_CHARLS
@@ -138,18 +133,12 @@ df_Variance_CHARLS <- df_CoefVar_CHARLS
 # 4.1 calculation
 for(tmpYear in df_Gini_CHARLS$year){  # loop on years
     for(tmpYname in envCHARLS$Ynames){  # loop on health outcomes
+        # slice a temp dataset
+        tmpdf <- li_Dat_CHARLS[[tmpYname]]
         # 4.1.1 get data vector
-        eval(parse(text=paste(sep="",
-                              "tmp <- df_CHARLS$",tmpYname,"[df_CHARLS$",envCHARLS$flagT," == ",tmpYear,"] "
-        )))
-        # 4.1.2 compute variance
-        eval(parse(text=paste(sep="",
-                              "df_Variance_CHARLS$",tmpYname,"[df_Variance_CHARLS$year == ",tmpYear,"] <- var(tmp)  "
-        )))
-        # 4.1.3 compute coef of variance
-        eval(parse(text=paste(sep="",
-                              "df_CoefVar_CHARLS$",tmpYname,"[df_CoefVar_CHARLS$year == ",tmpYear,"] <- sd(tmp) / mean(tmp)  "
-        )))
+        tmp <- tmpdf[,tmpYname][ tmpdf[,envCHARLS$flagT] == tmpYear ]
+        df_Variance_CHARLS[,tmpYname][df_Variance_CHARLS$year == tmpYear] <- var(tmp)
+        df_CoefVar_CHARLS[,tmpYname][df_CoefVar_CHARLS$year == tmpYear] <- sd(tmp) / mean(tmp)
     }
 }
 # 4.2 print info

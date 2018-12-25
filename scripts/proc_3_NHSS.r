@@ -38,9 +38,11 @@ li_ModPoolGLS_NHSS <- list()
 
 # 1.1 estimation & print summaries
 for(tmpYname in envNHSS$Ynames){
+    # slice a temp dataset
+    tmpdf <- li_Dat_NHSS[[tmpYname]]
     # 1.1.1 estimation
-    li_ModPoolOLS_NHSS[[tmpYname]] <- lm( li_Eq_NHSS[[tmpYname]], dfp_NHSS )
-    li_ModPoolGLS_NHSS[[tmpYname]] <- nlme::gls( li_Eq_NHSS[[tmpYname]], dfp_NHSS )
+    li_ModPoolOLS_NHSS[[tmpYname]] <- lm( li_Eq_NHSS[[tmpYname]], tmpdf )
+    li_ModPoolGLS_NHSS[[tmpYname]] <- nlme::gls( li_Eq_NHSS[[tmpYname]], tmpdf )
     # 1.1.2 run-time log
     cat("\n---------------------------------------------------------------\n***** FORMULA *****:\n")
     print( li_Eq_NHSS[[tmpYname]] ); print("\n")
@@ -81,11 +83,13 @@ df_Haussman_NHSS <- data.frame(
 
 # 2.1 loop on health outcomes, estimate & perform Haussman test
 for(tmpYname in envNHSS$Ynames){
+    # slice a temp dataset
+    tmpdf <- li_DatPlm_NHSS[[tmpYname]]
     # 2.1.1 fixed effect model (OLS estimator, the robustSE is computed when summary(mod) )
-    li_ModFix_NHSS[[tmpYname]] <- plm::plm( li_Eq_NHSS[[tmpYname]], data = dfp_NHSS, 
+    li_ModFix_NHSS[[tmpYname]] <- plm::plm( li_Eq_NHSS[[tmpYname]], data = tmpdf, 
                                               effect = "individual", model = "within" )
     # 2.1.2 random effect model (FGLS estimator)
-    li_ModRan_NHSS[[tmpYname]] <- plm::pggls( li_Eq_NHSS[[tmpYname]], data = dfp_NHSS, 
+    li_ModRan_NHSS[[tmpYname]] <- plm::pggls( li_Eq_NHSS[[tmpYname]], data = tmpdf, 
                                               effect = "individual", model = "random" )
     
     
@@ -131,7 +135,7 @@ cat("\nSECTION 3: NOTMALITY OF THE BENCHMARK MODEL (FIXED INDIVIDUAL EFFECT MODE
 #       H0: normal distribution
 # 
 df_NormTest_NHSS <- list(
-    Test = c( "Shapiro-Wilk", "Pearson Chi-square", "Kolmogorov-Smirnov",
+    Test = c( "Shapiro-Wilk", "Pearson Chi-square", "Lilliefor",
               "Anderson-Darling", "Cramer-von Mises" )  # test names
 )  # saves p-values; converted to a df later
 
@@ -173,8 +177,10 @@ df_exHaussman_NHSS <- df_Haussman_NHSS  # use the same structure
 
 # 4.1 estimate & Haussman
 for(tmpYname in envNHSS$Ynames){
+    # slice a temp data
+    tmpdf <- li_DatPlm_NHSS[[tmpYname]]
     # 4.1.1 estimate a two-way model
-    li_ModTwo_NHSS[[tmpYname]] <- plm::plm( li_Eq_NHSS[[tmpYname]], dfp_NHSS, effect = "twoways", model = "within" )
+    li_ModTwo_NHSS[[tmpYname]] <- plm::plm( li_Eq_NHSS[[tmpYname]], tmpdf, effect = "twoways", model = "within" )
     # 4.1.2 Haussman test (original)
     tmp <- df_exHaussman_NHSS$Equation == tmpYname
     tmp2 <- plm::phtest( li_ModFix_NHSS[[tmpYname]], li_ModTwo_NHSS[[tmpYname]] )
@@ -184,6 +190,8 @@ for(tmpYname in envNHSS$Ynames){
     tmp2 <- plm::phtest( li_ModFix_NHSS[[tmpYname]], li_ModTwo_NHSS[[tmpYname]], method = "aux" )
     df_exHaussman_NHSS$ChisqRobust <- tmp2$statistic
     df_exHaussman_NHSS$pVal_ChisqRobust <- tmp2$p.value
+    # print the two-way model
+    print( summary( li_ModTwo_NHSS[[tmpYname]], vcov = vcovHC(li_ModTwo_NHSS[[tmpYname]])   ) )  # summary, using robust cov-mat estimates
 }
 
 # 4.2 convert the results of Haussman test to a df, then output

@@ -38,9 +38,11 @@ li_ModPoolGLS_CHARLS <- list()
 
 # 1.1 estimation & print summaries
 for(tmpYname in envCHARLS$Ynames){
+    # slice a temp dataset
+    tmpdf <- li_Dat_CHARLS[[tmpYname]]
     # 1.1.1 estimation
-    li_ModPoolOLS_CHARLS[[tmpYname]] <- lm( li_Eq_CHARLS[[tmpYname]], dfp_CHARLS )
-    li_ModPoolGLS_CHARLS[[tmpYname]] <- nlme::gls( li_Eq_CHARLS[[tmpYname]], dfp_CHARLS )
+    li_ModPoolOLS_CHARLS[[tmpYname]] <- lm( li_Eq_CHARLS[[tmpYname]], tmpdf )
+    li_ModPoolGLS_CHARLS[[tmpYname]] <- nlme::gls( li_Eq_CHARLS[[tmpYname]], tmpdf )
     # 1.1.2 run-time log
     cat("\n---------------------------------------------------------------\n***** FORMULA *****:\n")
     print( li_Eq_CHARLS[[tmpYname]] ); print("\n")
@@ -75,11 +77,14 @@ df_Haussman_CHARLS <- data.frame(
 
 # 2.1 loop on health outcomes, estimate & perform Haussman test
 for(tmpYname in envCHARLS$Ynames){
+    # slice a temp dataset
+    tmpdf <- li_DatPlm_CHARLS[[tmpYname]]
+
     # 2.1.1 fixed effect model (OLS estimator + robustSE)
-    li_ModFix_CHARLS[[tmpYname]] <- plm::plm( li_Eq_CHARLS[[tmpYname]], data = dfp_CHARLS, 
+    li_ModFix_CHARLS[[tmpYname]] <- plm::plm( li_Eq_CHARLS[[tmpYname]], data = tmpdf, 
                                               effect = "individual", model = "within" )
     # 2.1.2 random effect model (FGLS estimator)
-    li_ModRan_CHARLS[[tmpYname]] <- plm::pggls( li_Eq_CHARLS[[tmpYname]], data = dfp_CHARLS, 
+    li_ModRan_CHARLS[[tmpYname]] <- plm::pggls( li_Eq_CHARLS[[tmpYname]], data = tmpdf, 
                                               effect = "individual", model = "random" )
     
     # 2.1.3 Haussman test (H0: random effect, if phtest(fixed, random))
@@ -117,7 +122,7 @@ cat("\nSECTION 3: NOTMALITY OF THE BENCHMARK MODEL (FIXED INDIVIDUAL EFFECT MODE
 #       H0: normal distribution
 # ---------------
 df_NormTest_CHARLS <- list(
-    Test = c( "Shapiro-Wilk", "Pearson Chi-square", "Kolmogorov-Smirnov",
+    Test = c( "Shapiro-Wilk", "Pearson Chi-square", "Lilliefor",
               "Anderson-Darling", "Cramer-von Mises" )  # test names
 )  # saves p-values; converted to a df later
 
@@ -154,8 +159,11 @@ df_exHaussman_CHARLS <- df_Haussman_CHARLS  # use the same structure
 
 # 4.1 estimate & Haussman
 for(tmpYname in envCHARLS$Ynames){
+    # slice a temp data
+    tmpdf <- li_DatPlm_CHARLS[[tmpYname]]
+    
     # 4.1.1 estimate a two-way model
-    li_ModTwo_CHARLS[[tmpYname]] <- plm::plm( li_Eq_CHARLS[[tmpYname]], dfp_CHARLS, effect = "twoways", model = "within" )
+    li_ModTwo_CHARLS[[tmpYname]] <- plm::plm( li_Eq_CHARLS[[tmpYname]], tmpdf, effect = "twoways", model = "within" )
     # 4.1.2 Haussman test (original)
     tmp <- df_exHaussman_CHARLS$Equation == tmpYname
     tmp2 <- plm::phtest( li_ModFix_CHARLS[[tmpYname]], li_ModTwo_CHARLS[[tmpYname]] )
@@ -165,6 +173,10 @@ for(tmpYname in envCHARLS$Ynames){
     tmp2 <- plm::phtest( li_ModFix_CHARLS[[tmpYname]], li_ModTwo_CHARLS[[tmpYname]], method = "aux" )
     df_exHaussman_CHARLS$ChisqRobust <- tmp2$statistic
     df_exHaussman_CHARLS$pVal_ChisqRobust <- tmp2$p.value
+    
+    # print the two-way model
+    print( summary( li_ModTwo_CHARLS[[tmpYname]], vcov = vcovHC(li_ModTwo_CHARLS[[tmpYname]])   ) )  # summary, using robust cov-mat estimates
+    
 }
 
 # 4.2 convert the results of Haussman test to a df, then output
@@ -178,15 +190,12 @@ write.csv(df_exHaussman_CHARLS, file=paste(sep="",envCHARLS$Output,"exHaussman_2
 
 
 # -------------------------------------
-## SECTION 5: (ROBUST) ADD EXTRA POSSIBLE VARIABLE
+## SECTION 5: (ROBUST) ADD EXTRA POSSIBLE VARIABLE: 
 # NOTE: 
 # 
 # 
 # 
 # ----------
-
-
-
 
 
 

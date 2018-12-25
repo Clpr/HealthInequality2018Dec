@@ -160,10 +160,13 @@ func_MapCityXY <- function( vecX, vecY, vlat, vlong, Xname = "x", Yname = "y" , 
             tmpdf$y2[ (tmpQuant[idx] <= tmpdf$y) & (tmpdf$y < tmpQuant[idx+1]) ] <- idx * 2
         }
         tmpdf$y2[ (tmpdf$y == tmpQuant[idx+1]) ] <- length(tmpQuant) * 2
+        tmpdf$y2qt <- func_RangeProject( tmpdf$y2, c(0,1) )  # convert to range [0,1], corresponding to quantiles
     # 4. painting
-    tmpfig <- tmpfig + geom_point(data=tmpdf, aes(x = long, y=lat, group = y2, color = y2  ), shape = 16, size = tmpdf$vcirclesize )  # main plotting
-    tmpfig <- tmpfig + labs(color = Yname )  # change the name of color legend/bar
+    tmpfig <- tmpfig + geom_point(data=tmpdf, aes(x = long, y=lat, group = y2, color = y2qt  ), shape = 16, size = tmpdf$vcirclesize )  # main plotting
+    tmpfig <- tmpfig + labs(color = paste("Quantile:",Yname) , legend.text = element_text(size = 20) )  # change the name of color legend/bar
+    tmpfig <- tmpfig + theme(legend.position="top")  # move the legend to the top as a bar
     tmpfig <- tmpfig + scale_colour_gradient( low = ColorScale[1], high = ColorScale[2]  )  # change color scale
+    tmpfig <- tmpfig + theme(axis.title=element_text(size=20) ) # change font size
     tmpfig <- tmpfig + annotate("text", x=90, y=53, label= paste(sep="","Circle size: ",Xname)   , alpha=.9, size = FontSize  )   # add annotations, alpha is the degree of transparency
     return(tmpfig)
 }

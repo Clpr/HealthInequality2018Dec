@@ -23,6 +23,7 @@
 # 7. nortest:   normality tests
 # 8. purrr:     std lib, to do function operations
 # 9. openxlsx:  easy xlsx I/O, no dependency on rJava
+# 10. psych:    easier APIs for PCA
 # -------------------------------------------
 
 rm(list=ls()) # clear
@@ -43,16 +44,19 @@ cat("\nScript 1: NHSS data processing & variable selection")
 #       2. NHSS data processing, missing values
 #       3. collinearity between income & edu: resid(income ~ edu) --> income
 #       4. NHSS (control) variable selection I: through single-variable regressions
-#       5. NHSS (control) variable selection II: AIC stepwise to FURTHER select control variables into final specifications
+#       5. NHSS (control) variable selection II: PCA
 #       6. VIFs of final specifications
 source("./scripts/proc_1_NHSS.r")
 # LEGACY IN WORKSPACE:
 #       1. df_NHSSraw:              raw NHSS dataset, consisting of all potential vars & useless vars; as backup
 #       2. df_NHSS:                 processed NHSS dataset
-#       3. dfp_NHSS:                a panel-data-type dataframe (converted from df_NHSS, used in package plm)
-#       4. df_FinalSpecif_NHSS:     a dataframe marking which variables in the final specifications
-#       5. df_VIF_NHSS:             VIF results of final specifications
+#       3. li_Dat_NHSS:             datasets for every specification
+#       3. li_DatPlm_NHSS:          panel-data for every specification
+#       4. li_PCAres_NHSS:          PCA results
+#       5. li_PCAk_NHSS:            numebr of components used in every specification
+#       5. li_VIF_NHSS:             VIF results of final specifications
 #       6. li_Eq_NHSS:              a list consisting of formula objects of final specifications
+#       7. li_Xnames_NHSS:          a list of namelists of independents of every specification
 #       7. envNHSS:                 environment variables of NHSS dataset
 # NOTE: pls go to ./output/proc_1_NHSS/ for output results (if applicable)
 # ---------------------------------------------
@@ -71,7 +75,7 @@ cat("\nScript 2: NHSS data descriptive statistics")
 #       7. NHSS data, the difference of (income & edu) among areas in china (colored map)
 source("./scripts/proc_2_NHSS.r")
 # LEGACY IN WORKSPACE:
-#       1. df_Descript_NHSS:            a table of the descriptive statistics of NHSS data (final specification)
+#       1. li_Descript_NHSS:            tables of the descriptive statistics of NHSS data (only income & edu, we do not do this on normalized+centered principle components!)
 #       2. df_InequalIdx_NHSS:          a table of different kinds of inequality indices of NHSS data
 #       3. MapShapeCH:                  a dataset of Chinese GIS data; will be used later
 #       4. func_DescrStat:              a function to do descriptive statistics

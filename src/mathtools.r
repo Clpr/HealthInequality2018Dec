@@ -121,6 +121,53 @@ func_DescrStat <- function(tmpdf){
 
 
 
+# ------------------------------------
+# function: construct formula objects from Y's name and a vector of X candidates
+# NOTE: not support complex setting, e.g. instrumental variables
+func_GetEq <- function(Yname, Xnames, Intercept = TRUE, KeepStr = TRUE ){
+    # input:
+    # 1. Yname: a string, indicates Y
+    # 2. Xnames: a char vec of X names
+    # 3. Intercept: bool, indicates if to keep an intercept
+    # 4. KeepStr: bool, if TRUE, returns a string formula, if FALSE, returns a formula instance
+    # output：
+    # 1. Eq: a formla instance
+    # ----------
+    Eq <- paste(Yname,"~", paste(collapse=" + ",Xnames) )
+    if(Intercept){
+        Eq <- Eq
+    }else{
+        Eq <- paste(Eq,"-1")
+    }
+    if(KeepStr){
+        return(Eq)    
+    }else{
+        return(formula(Eq))
+    }
+    
+}
+
+
+
+
+
+
+
+
+# ---------------------------------------
+# function: convert class "loadings" to a titled matrix
+# NOTE: thanks: https://stackoverflow.com/questions/53825816/convert-a-loadings-object-to-a-dataframe-r
+func_Load2Mat <- function( obj ){
+    # input
+    # 1. obj: a "loadings" instance, usually be pcares$loadings, where pcares is a returned instance by prcomp() or psych::principal()
+    # output
+    # 1. mat: a numeric matrix (loading matrix), both row & col are named
+    # ------------
+    df <- data.frame(matrix(as.numeric(obj), attributes(obj)$dim, dimnames=attributes(obj)$dimnames))
+    return(df)
+}
+
+
 
 
 

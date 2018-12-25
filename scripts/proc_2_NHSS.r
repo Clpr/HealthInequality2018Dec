@@ -11,6 +11,7 @@
 # -------------------------------------
 ## SECTION 0: ENVIRONMENT
 library(sqldf)  # sql enquiry
+library(openxlsx)  # easy xlsx IO
 source("./src/mathtools.r")  # math tools, e.g. Lorenz, Theil, descriptive stats
 source("./src/mapplots.r")  # tools of map plots, using ggplot2
 # environment par dict
@@ -21,21 +22,23 @@ envNHSS$Output <- "./output/proc_2_NHSS/"  # alter output directory
 # -------------------------------------
 ## SECTION 1: GENERAL DESCRIPTIVE STATISTICS
 cat("\nGeneral descriptive statistics of NHSS dataset:\n")
-cat("(we do not summarize urban because it is a flag variable)\n")
 cat("(please note: the income now is the residuals of income ~ edu)\n")
-# NOTE: do this section for the full set of 3 NHSS final specifications
+cat("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+cat("PLEASE NOTE: because we have normalized PCA components, we only do descriptive statistics for income & edu!!!!!!")
+cat("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+# --------------
+li_Descript_NHSS <- list()  # a list of descriptive statistics
+for(tmpYname in envNHSS$Ynames){
+    # 1.1 get a namelist of all numeric variables, both Y and Xcore
+    tmp <- c( tmpYname, envNHSS$Xcore )
+    li_Descript_NHSS[[tmpYname]] <- func_DescrStat( li_Dat_NHSS[[tmpYname]][,tmp] )
+    # 1.2 print
+    print(li_Descript_NHSS[[tmpYname]]); cat("-----------------------------------------\n")
+}
+# output to xlsx
+openxlsx::write.xlsx(li_Descript_NHSS, paste(sep="",envNHSS$Output,"Descript_NHSS.xlsx")  )
 
-# 1.1 get a namelist of all numeric variables, both Y and X
-tmp <- c( envNHSS$Ynames, as.character(df_FinalSpecif_NHSS$IndicatorName) )
-tmp <- base::setdiff(tmp, envNHSS$Xisflag)  # drop flag variables (urban), they/it need(s) special description
-# 1.2 slice a compact dataset only contains variales in final specifications
-tmp <- df_NHSS[,tmp]
-# 1.3 summary the compact dataset
-df_Descript_NHSS <- func_DescrStat(tmp)
-# 1.4 print
-print(df_Descript_NHSS)
-# 1.5 output
-write.csv(df_Descript_NHSS,paste(sep="",envNHSS$Output,"Descript_NHSS.csv"))
+
 
 
 
@@ -58,22 +61,21 @@ df_Gini_NHSS <- data.frame(
 # 2.1 use functions in mathtools.r to compute Lorenz Curve & Gini coefficients
 # NOTE: please refer to mathtools.r for how we calculated the both
 #       and, if you want to see the plotting of Lorenz Curve, you may DIY (using tmp$LorenzX and tmp$LorenzY)
-for(tmpYear in df_Gini_NHSS$year){  # loop on years
-    for(tmpYname in envNHSS$Ynames){  # loop on health outcomes
+for(tmpYear in df_Gini_NHSS$year){
+    for(tmpYname in envNHSS$Ynames){
         # 2.1.1 compute Lorenz Curve & Gini in specific year
-        eval(parse(text=paste(sep="",
-            "tmp <- LorenzCurve( df_NHSS$",tmpYname,"[df_NHSS$",envNHSS$flagT," == ",tmpYear,"] )"
-        )))
+        # eval(parse(text=paste(sep="",
+        #     "tmp <- LorenzCurve( df_NHSS$",tmpYname,"[df_NHSS$",envNHSS$flagT," == ",tmpYear,"] )"
+        # ))) 
+        tmp <- li_Dat_NHSS[[tmpYname]]
+        tmp <- LorenzCurve( tmp[ tmp[,envNHSS$flagT] == tmpYear ,tmpYname] )
         # 2.1.2 save Gini coef
-        eval(parse(text=paste(sep="",
-           "df_Gini_NHSS$",tmpYname,"[df_Gini_NHSS$year == ",tmpYear,"] <- tmp$GiniIdx"
-        )))
+        df_Gini_NHSS[,tmpYname][df_Gini_NHSS$year == tmpYear] <- tmp$GiniIdx
     }
 }
-
-# 2.2 print info
-cat("\nThe county-level Gini coefs in every year of NHSS dataset are:\n")
+# print & output to xlsx
 print(df_Gini_NHSS)
+
 
 # NOTE: the results will be output to a csv file with other kinds of indices, later
 
@@ -98,19 +100,13 @@ df_Theil2_NHSS <- df_Theil1_NHSS
 # 3.1 use functions in mathtools.r to do computing
 for(tmpYear in df_Gini_NHSS$year){  # loop on years
     for(tmpYname in envNHSS$Ynames){  # loop on health outcomes
+        # slice a temp dataset
+        tmpdf <- li_Dat_NHSS[[tmpYname]]
         # 3.1.1 compute Theil-I & Theil-II in a specific year
-        eval(parse(text=paste(sep="",
-                              "tmp <- Theil( df_NHSS$",tmpYname,"[df_NHSS$",envNHSS$flagT," == ",tmpYear,"], Type = \"T\" )"
-        )))
-        eval(parse(text=paste(sep="",
-                              "df_Theil1_NHSS$",tmpYname,"[df_Theil1_NHSS$year == ",tmpYear,"] <- tmp"
-        )))
-        eval(parse(text=paste(sep="",
-                              "tmp <- Theil( df_NHSS$",tmpYname,"[df_NHSS$",envNHSS$flagT," == ",tmpYear,"], Type = \"L\" )"
-        )))
-        eval(parse(text=paste(sep="",
-                              "df_Theil2_NHSS$",tmpYname,"[df_Theil2_NHSS$year == ",tmpYear,"] <- tmp"
-        )))
+        tmp <- Theil( tmpdf[,tmpYname][tmpdf[,envNHSS$flagT] == tmpYear], Type = "T" )
+        df_Theil1_NHSS[,tmpYname][ df_Theil1_NHSS$year == tmpYear ] <- tmp
+        tmp <- Theil( tmpdf[,tmpYname][tmpdf[,envNHSS$flagT] == tmpYear], Type = "L" )
+        df_Theil2_NHSS[,tmpYname][ df_Theil2_NHSS$year == tmpYear ] <- tmp
     }
 }
 
@@ -144,18 +140,12 @@ df_Variance_NHSS <- df_CoefVar_NHSS
 # 4.1 calculation
 for(tmpYear in df_Gini_NHSS$year){  # loop on years
     for(tmpYname in envNHSS$Ynames){  # loop on health outcomes
+        # slice a temp dataset
+        tmpdf <- li_Dat_NHSS[[tmpYname]]
         # 4.1.1 get data vector
-        eval(parse(text=paste(sep="",
-                              "tmp <- df_NHSS$",tmpYname,"[df_NHSS$",envNHSS$flagT," == ",tmpYear,"] "
-        )))
-        # 4.1.2 compute variance
-        eval(parse(text=paste(sep="",
-                              "df_Variance_NHSS$",tmpYname,"[df_Variance_NHSS$year == ",tmpYear,"] <- var(tmp)  "
-        )))
-        # 4.1.3 compute coef of variance
-        eval(parse(text=paste(sep="",
-                              "df_CoefVar_NHSS$",tmpYname,"[df_CoefVar_NHSS$year == ",tmpYear,"] <- sd(tmp) / mean(tmp)  "
-        )))
+        tmp <- tmpdf[,tmpYname][ tmpdf[,envNHSS$flagT] == tmpYear ]
+        df_Variance_NHSS[,tmpYname][df_Variance_NHSS$year == tmpYear] <- var(tmp)
+        df_CoefVar_NHSS[,tmpYname][df_CoefVar_NHSS$year == tmpYear] <- sd(tmp) / mean(tmp)
     }
 }
 
@@ -181,7 +171,7 @@ df_InequalIdx_NHSS <- cbind(
 )
 # 5.2 garbage recycling
 rm( df_Gini_NHSS, df_Theil1_NHSS, df_Theil2_NHSS, df_Variance_NHSS, df_CoefVar_NHSS )
-rm( tmpYear, tmpYname )
+rm( tmpYear, tmpYname, tmpdf )
 # 5.3 output to csv
 write.csv( df_InequalIdx_NHSS, file = paste(sep="",envNHSS$Output,"InequalityIdx_NHSS.csv") )
 
@@ -205,6 +195,7 @@ write.csv( df_InequalIdx_NHSS, file = paste(sep="",envNHSS$Output,"InequalityIdx
 # NOTE: in this section, we merge the China city/County GIS data with df_NHSS;
 #       the data have been preloaded by mapplots.r, and named as MapGIScity;
 #       in the next section, the dataset will be used to plot
+# NOTE: we do not plot PCs -> health outcomes, therefore, just use df_NHSS!
 tmpdf <- plyr::join( df_NHSS, MapGIScity[,c("ID","long","lat")], by = "ID" )  # we use GB (country standard) codes of city/county to match by
 tmpdf <- na.omit(tmpdf)
 

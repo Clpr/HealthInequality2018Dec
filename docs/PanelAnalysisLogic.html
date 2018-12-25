@@ -2,7 +2,7 @@
     <html>
     <head>
         <meta http-equiv="Content-type" content="text/html;charset=UTF-8">
-        <title>The logic of our empirical studies (NHSS)</title>
+        <title>The logic of our empirical studies (NHSS, CHARLS)</title>
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.10.0-rc.1/dist/katex.min.css" integrity="sha384-D+9gmBxUQogRLqvARvNLmA9hS2x//eK1FhVb9PiU86gmcrBrJAQT8okdJ4LMp2uv" crossorigin="anonymous">
         <style>
 /*--------------------------------------------------------------------------------------------- * Copyright (c) Microsoft Corporation. All rights reserved. * Licensed under the MIT License. See License.txt in the project root for license information. *--------------------------------------------------------------------------------------------*/ body { font-family: "Segoe WPC", "Segoe UI", "SFUIText-Light", "HelveticaNeue-Light", sans-serif, "Droid Sans Fallback"; font-size: 14px; padding: 0 26px; line-height: 22px; word-wrap: break-word; } #code-csp-warning { position: fixed; top: 0; right: 0; color: white; margin: 16px; text-align: center; font-size: 12px; font-family: sans-serif; background-color:#444444; cursor: pointer; padding: 6px; box-shadow: 1px 1px 1px rgba(0,0,0,.25); } #code-csp-warning:hover { text-decoration: none; background-color:#007acc; box-shadow: 2px 2px 2px rgba(0,0,0,.25); } body.scrollBeyondLastLine { margin-bottom: calc(100vh - 22px); } body.showEditorSelection .code-line { position: relative; } body.showEditorSelection .code-active-line:before, body.showEditorSelection .code-line:hover:before { content: ""; display: block; position: absolute; top: 0; left: -12px; height: 100%; } body.showEditorSelection li.code-active-line:before, body.showEditorSelection li.code-line:hover:before { left: -30px; } .vscode-light.showEditorSelection .code-active-line:before { border-left: 3px solid rgba(0, 0, 0, 0.15); } .vscode-light.showEditorSelection .code-line:hover:before { border-left: 3px solid rgba(0, 0, 0, 0.40); } .vscode-light.showEditorSelection .code-line .code-line:hover:before { border-left: none; } .vscode-dark.showEditorSelection .code-active-line:before { border-left: 3px solid rgba(255, 255, 255, 0.4); } .vscode-dark.showEditorSelection .code-line:hover:before { border-left: 3px solid rgba(255, 255, 255, 0.60); } .vscode-dark.showEditorSelection .code-line .code-line:hover:before { border-left: none; } .vscode-high-contrast.showEditorSelection .code-active-line:before { border-left: 3px solid rgba(255, 160, 0, 0.7); } .vscode-high-contrast.showEditorSelection .code-line:hover:before { border-left: 3px solid rgba(255, 160, 0, 1); } .vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before { border-left: none; } img { max-width: 100%; max-height: 100%; } a { text-decoration: none; } a:hover { text-decoration: underline; } a:focus, input:focus, select:focus, textarea:focus { outline: 1px solid -webkit-focus-ring-color; outline-offset: -1px; } hr { border: 0; height: 2px; border-bottom: 2px solid; } h1 { padding-bottom: 0.3em; line-height: 1.2; border-bottom-width: 1px; border-bottom-style: solid; } h1, h2, h3 { font-weight: normal; } h1 code, h2 code, h3 code, h4 code, h5 code, h6 code { font-size: inherit; line-height: auto; } table { border-collapse: collapse; } table > thead > tr > th { text-align: left; border-bottom: 1px solid; } table > thead > tr > th, table > thead > tr > td, table > tbody > tr > th, table > tbody > tr > td { padding: 5px 10px; } table > tbody > tr + tr > td { border-top: 1px solid; } blockquote { margin: 0 7px 0 5px; padding: 0 16px 0 10px; border-left-width: 5px; border-left-style: solid; } code { font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback"; font-size: 14px; line-height: 19px; } body.wordWrap pre { white-space: pre-wrap; } .mac code { font-size: 12px; line-height: 18px; } pre:not(.hljs), pre.hljs code > div { padding: 16px; border-radius: 3px; overflow: auto; } /** Theming */ pre code { color: var(--vscode-editor-foreground); } .vscode-light pre { background-color: rgba(220, 220, 220, 0.4); } .vscode-dark pre { background-color: rgba(10, 10, 10, 0.4); } .vscode-high-contrast pre { background-color: rgb(0, 0, 0); } .vscode-high-contrast h1 { border-color: rgb(0, 0, 0); } .vscode-light table > thead > tr > th { border-color: rgba(0, 0, 0, 0.69); } .vscode-dark table > thead > tr > th { border-color: rgba(255, 255, 255, 0.69); } .vscode-light h1, .vscode-light hr, .vscode-light table > tbody > tr + tr > td { border-color: rgba(0, 0, 0, 0.18); } .vscode-dark h1, .vscode-dark hr, .vscode-dark table > tbody > tr + tr > td { border-color: rgba(255, 255, 255, 0.18); } 
@@ -24,7 +24,7 @@
     </head>
     <body>
         <!-- encoding UTF-8 -->
-<h1 id="the-logic-of-our-empirical-studies-nhss">The logic of our empirical studies (NHSS)</h1>
+<h1 id="the-logic-of-our-empirical-studies-nhss-charls">The logic of our empirical studies (NHSS, CHARLS)</h1>
 <!-- author: Tianhao Zhao -->
 <h2 id="date-dec-21-2018"><!-- date: Dec 21 2018 --></h2>
 <p><strong>Q: what kind of inequalities of health outcomes do we care?</strong></p>
@@ -39,26 +39,23 @@
 <li>inequality only determined by other fators other than socioeconomic status</li>
 </ol>
 <p>The 2nd kind of ineuqlity is just what we want to discuss in this paper. However, if we want to properly evaluate it, we need to distinguish the 1st &amp; 3rd kinds from the 2nd kind of inequality.</p>
-<p><strong>Q: Therefore, how to control or separate the 1st &amp; 4rd kinds of inequalities/differences from the 2nd kind?</strong></p>
+<p><strong>Q: Therefore, how to control or separate the 1st &amp; 3rd kinds of inequalities/differences from the 2nd kind?</strong></p>
 <p><strong>A</strong>: Because we use a panel dataset, it is then easy to find that the <strong>individual effect</strong> corresponds to the 1st &amp; 3rd kinds of inequalities: <u>the inequality only determined by who the individuals are and/or other factors other than socioeconomic status</u>.
 However, please note that if individual effects are partly related to some factors not included in our regression equations, it means that there is a type of endogeneity (missing independent variables).
 Therefore, it is neccessary to specially care possible problems of <strong>heteroskedasticity</strong> in our final specifications to expel the effects of the 3rd kind of inequality (through tests, GLS etc).
-When heteroskedasticity are well solved, the individual effects can be explained as the &quot;pure&quot; ineuqality only determiend by who the individuals are (the 1st kind). In some ways, it indicates the history results/bases in a county area.</p>
+When heteroskedasticity are well solved, the individual effects can be explained as the &quot;pure&quot; ineuqality only determiend by who the individuals are (the 1st kind).</p>
 <p><strong>Q: OK, now we know that we need individual effects in our model to distinguish the three kinds of inequality. But what type of individual effects to use? <font color=red>Fixed or random?</font></strong></p>
 <p><strong>A</strong>: This question can be answered by Haussman test.
 Meanwhile, because we specially care the heteroskedasticity problem,
 we use both Haussman test &amp; the robust Haussman test (Wooldridge, 2010).
 The latter uses an auxiliary regression.</p>
 <p><strong>Q: You said you care possible heteroskedasticity problem. So, how to test and solve it in your regressions?</strong></p>
-<p><strong>A</strong>: We apply the FGLS estimator on all specifications.
-(Im et al., 1999)
+<p><strong>A</strong>: We apply the FGLS estimators (Im et al., 1999) for random effect models;
+and use OLS estimators + robust estimator of covariance matrix for fixed effect models &amp; two-ways fixed effect models.
 Therefore, BP test is nomore required.</p>
-<p><strong>Q: OK, so far, you have used fixed individual effects + FGLS estimators in regressions. However, do you need something about time? e.g. time effects and/or stationary tests? <font color=red>(ROBUST 1)</font></strong></p>
-<p><strong>A</strong>: Because we use a 3-year panel, a short one, we do not need to consider time-series effects.
-And, to answer if we need time effects, we can simultaneously estimate a <strong>two-way fixed effect</strong> model as a kind of robustness check (compared to our one-way individual effect model).</p>
-<p><strong>Q: Common panel data models requires the <font color=red>normality assumption of residuals</font>, can you test it? And, if not a normal distribution, how to robustly estimate your equations? <font color=red>(ROBUST 2)</font></strong></p>
-<p><strong>A</strong>: No, not normal distributions. We performed QQ-plots &amp; some popular normality tests on our model's residuals, then found they do not follow normal distributions (But they look similar to normal ones!)
-Therefore, we add the <strong>GMM</strong> estimator of our one-way fixed individual effect model to do robustness check.</p>
+<p><strong>Q: However, do you concern something about time? e.g. time effects and/or stationary tests? <font color=red>(ROBUST 1)</font></strong></p>
+<p><strong>A</strong>: Because we use 3-year panels, a short one, we do not need to consider time-series effects.
+And, to answer if we need time effects, we can simultaneously estimate a <strong>two-ways fixed effect</strong> model as a kind of robustness check (compared to our one-way individual effect model).</p>
 
     </body>
     </html>

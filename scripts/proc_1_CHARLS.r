@@ -19,6 +19,9 @@ library(readxl)  # xlsx I/O
 library(car)  # VIF
 library(sqldf)  # sql api
 library(plm)  # panel data models
+library(openxlsx)  # easy xlsx IO
+library(psych)  # easiser PCA
+source("./src/mathtools.r")
 # library(plyr)  # sql-like dataframe operations
 
 
@@ -34,8 +37,8 @@ envCHARLS <- list(
     Xcandidate = c( "" ),  # a name list of potential independents, filled later
     Xcontrol = c(""),  # selected control variables (not includes Xcore)
     Xexpel = c(
-        "NONAGRIHUKOU_RATIO"
-        ),  # variables to drop, usually those almost-singular
+        "NONAGRIHUKOU_RATIO", "AVGCHRONIC_NUM", "HOSP1Y_RATIO", "AVGHOSP1Y_TIMES", "AVGOUTP1M_TIMES", "AVGOUTP1M_REALEXP"
+        ),  # variables to drop, usually those almost-singular, with endogeneity etc
     # ----------------------
     flagCity = "city",  # individual flag (county level)
     flagProv = "province",  # individual flag (province level)
@@ -104,14 +107,14 @@ df_CHARLS <- na.omit(df_CHARLS)
 # ---------------------------------------
 # SECTION 2: solve the problem of collinearty between the two core vars (income & edu)
 cat("\nSection 2: COLLINEARITY BETWEEN INCOME & EDU\n-----------------------------------------------\n")
-# NOTE: in NHSS, agents are over 45 years old, they had finished education when interviewed,
+# NOTE: in CHARLS, agents are over 45 years old, they had finished education when interviewed,
 #       and were receiving working inocmes or retired. 
 #       both working & retirement have incomes, e.g. salary when working and pension benefites when retired.
 #       Therefore, edu may affect income, but income cannot affect edu.
 #       there is collinearity between the two, but the channel is one-way & clear (edu -> income).
 #       Thus, We use edu to regress income, then use the residuals to replace income.
 #       Then, the collinearity is solved, and we can clearly discuss the "pure" effect of income & edu
-# NOTE: different from NHSS, we have multiple candidates about incomes now. 
+# NOTE: different from CHARLS, we have multiple candidates about incomes now. 
 #       but we care the INDIVIDUAL TOTAL incomes, and drop other kinds of incomes
 #       i.e. we, for now, do not distinguish different kinds of income sources
 # ------------
@@ -129,14 +132,22 @@ tmp <- c(
 )
 envCHARLS$Xcandidate <- base::setdiff(envCHARLS$Xcandidate, tmp)
 df_CHARLS[,tmp] <- NULL
+
+# change possible income independent
+# names(df_CHARLS)[ names(df_CHARLS) == "AVGHOUSINCOME_TOTAL" ] <- "AVGINDIINCOME_TOTAL"  # want to use <- const!
+
+
 # 2.1 the correlation coef between income & edu:
-# cat("Corr(AVGINDIINCOME_TOTAL,AVGEDU) = ", cor(df_CHARLS$AVGINDIINCOME_TOTAL, df_CHARLS$AVGEDU), "\n" )
-# # 2.2 regression
-# tmp <- lm( AVGINDIINCOME_TOTAL ~ AVGEDU, df_CHARLS )
-# # 2.3 replace income with the residuals
-# df_CHARLS$AVGINDIINCOME_TOTAL <- residuals(tmp)
-# # 2.4 print info
-# cat("Corr(resid(AVGINDIINCOME_TOTAL ~ AVGEDU), AVGEDU) = ", cor(df_CHARLS$AVGINDIINCOME_TOTAL, df_CHARLS$AVGEDU), "\nCollinearity Solved\n" )
+cat("Corr(AVGINDIINCOME_TOTAL,AVGEDU) = ", cor(df_CHARLS$AVGINDIINCOME_TOTAL, df_CHARLS$AVGEDU), "\n" )
+# 2.2 regression
+tmp <- lm( AVGINDIINCOME_TOTAL ~ AVGEDU, df_CHARLS )
+# 2.3 replace income with the residuals
+df_CHARLS$AVGINDIINCOME_TOTAL <- residuals(tmp)
+# 2.4 print info
+cat("Corr(resid(AVGINDIINCOME_TOTAL ~ AVGEDU), AVGEDU) = ", cor(df_CHARLS$AVGINDIINCOME_TOTAL, df_CHARLS$AVGEDU), "\nCollinearity Solved\n" )
+
+
+
 
 
 
@@ -190,63 +201,11 @@ cat("these control variables remain:\n",envCHARLS$Xcontrol,"\n")
 df_SignifSingle$FlagSelected <- NULL  # not needed anymore, if kept, may be misleading
 df_SignifSingle <- df_SignifSingle[df_SignifSingle$IndicatorName %in% envCHARLS$Xcontrol,  ]  # drop those dorpped vars
 
-# 3.7 do AIC-forward selection for every health outcome indicator, on core Xs & all selected control vars
-for(tmpYname in envCHARLS$Ynames){
-    # 3.7.1 build a formula, forcely keep income & edu
-    tmp <- formula(paste(
-        tmpYname,"~",paste(collapse="+",envCHARLS$Xcore),"+",paste(collapse="+",envCHARLS$Xcontrol)
-    ))  # a basic/complete specification to select
-    # 3.7.2 benchmark model by OLS, pool data model
-    tmp <- lm(tmp,data=df_CHARLS)
-    # 3.7.3 selection with AIC, forward; get selected model specification
-    tmp <- summary(step(tmp, direction="forward", trace = 0 ))  # trace = 0 print no info to console
-    # 3.7.4 get stat-significant variable names
-    tmp <- tmp$coefficients
-    tmp <- rownames(tmp)[ tmp[,4] < 0.05 ]  # alpha = 0.05
-    # 3.7.5 mark in the df_SignifSingle, if stat-significant, mark as TRUE, else, mark as FALSE
-    tmp <- df_SignifSingle$IndicatorName %in% tmp  # a logic vector; marks if a control variable is selected by AIC
-    eval(parse(text = paste(sep="",
-                            "df_SignifSingle$",tmpYname," <- tmp"
-    )))  # save
-}
 
-# 3.8 add Xcore (income & edu) to df_SignifSingle to get complete final specifications
-tmp <- data.frame(
-    IndicatorName = envCHARLS$Xcore, # a equiv structure df as df_SignifSingle
-    OUTP1M_RATIO = TRUE,  # all Xcore must be included in the final specification
-    CHRONIC_RATIO = TRUE
-)
-df_SignifSingle <- rbind( tmp, df_SignifSingle )
 
-# 3.9 save specifications & print final specifications to console
-li_Eq_CHARLS <- list()  # an empty list to save the formulas of final specifications
-cat("\nAfter further selection with AIC+forward (on pool data model), we got final specifications for each health outcomes: \n\n")
-for(tmpYname in envCHARLS$Ynames){
-    # select names of final independents
-    eval(parse(text=paste(sep="",
-                          "tmp <- df_SignifSingle$",tmpYname," == TRUE"
-    )))
-    # construct a formula
-    tmp <- formula(paste(
-        tmpYname,"~",paste(collapse = "+",df_SignifSingle$IndicatorName[tmp])
-    )) 
-    # save to the list
-    eval(parse(text=paste(sep="",
-                          "li_Eq_CHARLS$",tmpYname," <- tmp"
-    )))
-}
-print(li_Eq_CHARLS)
 
-# 3.10 drop those lines/control variables (excluded by AIC) from df_SignifSingle
-# NOTE: if all health outcomes do not select a specific control variable, it is then be dropped from the dataframe
-tmp <- apply( df_SignifSingle[,envCHARLS$Ynames], 1, sum ) != 0
-df_SignifSingle <- df_SignifSingle[tmp,]
 
-# 3.11 get a copy record, cosistent with other scripts
-df_FinalSpecif_CHARLS <- df_SignifSingle
 
-# 3.12 output final specifications
-write.csv(df_FinalSpecif_CHARLS,file= paste(sep="",envCHARLS$Output,"FinalSpecification_CHARLS.csv") )
 
 
 
@@ -258,55 +217,137 @@ write.csv(df_FinalSpecif_CHARLS,file= paste(sep="",envCHARLS$Output,"FinalSpecif
 
 
 # ---------------------------------------
+# SECTION 3: MODEL SELECTION: PCA
+# -------
+# 3.1 a list to save PCA results generated by prcomp()
+li_PCAres_CHARLS <- list(
+    OUTP1M_RATIO = 0,
+    CHRONIC_RATIO = 0
+)
+# 3.2 PCA analysis
+# a vector to set max k components for each dependent
+li_PCAk_CHARLS <- list(
+    OUTP1M_RATIO = 9,
+    CHRONIC_RATIO = 11
+)
+# 3.2.1 run
+for(tmpYname in envCHARLS$Ynames){
+    # estimate using psych library
+    tmp <- as.character(df_SignifSingle$IndicatorName[ df_SignifSingle[,tmpYname] ] )  # index
+    tmp <- psych::principal( df_CHARLS[,tmp], nfactors = li_PCAk_CHARLS[[tmpYname]], rotate = "varimax", scores = TRUE )  # rotate
+    li_PCAres_CHARLS[[tmpYname]] <- tmp
+        # # estimate (using build-in function prcomp() )
+        # tmp <- as.character(df_SignifSingle$IndicatorName[ df_SignifSingle[,tmpYname] ] )  # index
+        # li_PCAres_CHARLS[[tmpYname]] <- prcomp( df_CHARLS[,tmp], center = TRUE, scale. = TRUE, retx = TRUE, rank. = li_PCAk_CHARLS[[tmpYname]]  )
+        # varmax()  # rotating
+    # print
+    cat("Dependent: ",tmpYname,"\n")
+    print(  li_PCAres_CHARLS[[tmpYname]]  )
+    cat("\n----------------------\n")
+}
+# 3.2.2 output (openxlsx can make every element in a list as a sheet in excel)
+tmp <- list()  # eigen values
+tmp1 <- list()  # loading matrix
+for(tmpYname in envCHARLS$Ynames){
+    tmp[[tmpYname]] <- li_PCAres_CHARLS[[tmpYname]]$values   # output eigen values
+    tmp1[[tmpYname]] <- func_Load2Mat(  li_PCAres_CHARLS[[tmpYname]]$loadings  )  # loading matrix
+}
+openxlsx::write.xlsx(  tmp  , paste(sep="",envCHARLS$Output,"PCAresult_CHARLS.xlsx"),  rowNames = TRUE  )
+openxlsx::write.xlsx(  tmp1  , paste(sep="",envCHARLS$Output,"PCAloading_CHARLS.xlsx"),  rowNames = TRUE  )
+
+
+
+
+
+
+# 3.2.3 scree plots and output
+# NOTE: for convenience, we plot it in excel! :)
+
+
+
+
+
+
+
+
+
+
+# 3.2 construct a list to save the namelists of independents (Xcore + Pca) for every specification
+li_Xnames_CHARLS <- list()
+for(tmpYname in envCHARLS$Ynames){
+    li_Xnames_CHARLS[[tmpYname]] <- c( envCHARLS$Xcore, paste(sep="","RC", 1:li_PCAk_CHARLS[[tmpYname]]  )  )
+}
+
+
+
+
+
+
+
+
+
+# 3.3 construct final specifications
+li_Eq_CHARLS <- list()
+for(tmpYname in envCHARLS$Ynames){
+    # final specifications: y ~ income + edu + PC1 + ...
+    li_Eq_CHARLS[[tmpYname]] <- func_GetEq( tmpYname,  li_Xnames_CHARLS[[tmpYname]]  ,
+                                          Intercept = TRUE, KeepStr = FALSE
+    )
+    # print final specifications
+    print(li_Eq_CHARLS[[tmpYname]]); cat("------------------------\n")
+}
+
+
+
+
+
+
+# 3.4 construct corresponding datasets
+li_Dat_CHARLS <- list()  # general dataset
+li_DatPlm_CHARLS <- list()  # plm indexed dataset
+for(tmpYname in envCHARLS$Ynames){
+    # extract principle components of current Y
+    tmp <- li_PCAres_CHARLS[[tmpYname]]$scores
+    # merge it with Y, Xcore, tags (indi, time)
+    li_Dat_CHARLS[[tmpYname]] <- data.frame( df_CHARLS[,c( envCHARLS$flagT, envCHARLS$flagCity, tmpYname, envCHARLS$Xcore )] , tmp )
+    li_DatPlm_CHARLS[[tmpYname]] <- plm::pdata.frame( li_Dat_CHARLS[[tmpYname]], index = c( envCHARLS$flagCity, envCHARLS$flagT ) )
+}
+
+
+
+
+
+
+
+
+# ---------------------------------------
 # SECTION 4: VIF computing
 cat("\nSection 4: VIF OF FINAL SPECIFICATIONS\n-----------------------------------------------\n")
-# ----------------
-# 4.1 compute VIF for each specification
-df_VIF_CHARLS <- df_SignifSingle  # a df to store VIF results
+# NOTE: up to now, we have finished the variable selection for CHARLS dataset;
+#       the results are saved in li_PCAk_CHARLS, li_PCAres_CHARLS, li_Eq_CHARLS etc;
+#       then we compute VIF for each specification and print:
+cat("up to now, we have finished the variable selection for CHARLS dataset.")
+cat("then we compute VIF for each specification and print:\n")
+# -------
+li_VIF_CHARLS <- list()  # a list to save VIF results
 for(tmpYname in envCHARLS$Ynames){
-    # 4.1.1 get the namelist of the final specification's X 
-    eval(parse(text=paste(sep="",
-                          "tmpXname <- as.character(df_SignifSingle$IndicatorName[df_SignifSingle$",tmpYname,"])"
-    )))
-    # 4.1.2 slice a temp X's dataset to compute VIF
-    tmp <- df_CHARLS[,tmpXname]
-    # 4.1.3 compute VIF & save
-    eval(parse(text = paste(sep="",
-                            "tmp <- car::vif(lm(li_Eq_CHARLS$",tmpYname,", data=df_CHARLS) )"
-    )))
-    # 4.1.4 save to df_VIF_NHSS
-    eval(parse(text = paste(sep="",
-                            "df_VIF_CHARLS$",tmpYname," <- NA"
-    )))  # first, refresh all values to NA
-    eval(parse(text = paste(sep="",
-                            "df_VIF_CHARLS$",tmpYname,"[df_VIF_CHARLS$IndicatorName %in% names(tmp)] <- tmp"
-    )))
-    
+    # get temp dataset
+    tmp <- li_Dat_CHARLS[[tmpYname]]
+    # compute VIF
+    li_VIF_CHARLS[[tmpYname]] <- car::vif( lm( li_Eq_CHARLS[[tmpYname]], tmp ) )
+    # print
+    print(li_VIF_CHARLS[[tmpYname]]); cat("----------------------------\n")
 }
-# 4.2 print the VIF table
-cat("\nDisplay the VIFs of final specifications:\n")
-print(df_VIF_CHARLS)
-
-# 4.3 output the VIF table
-write.csv(df_VIF_CHARLS,file=paste(sep="",envCHARLS$Output,"VIF_CHARLS.csv")   )
+# output to xlsx
+openxlsx::write.xlsx( li_VIF_CHARLS, paste(sep="",envCHARLS$Output,"VIF_CHARLS.xlsx") )
 
 
 
-
-# --------------------------------
-# SECTION 5: CONVERT TO PANEL DATA TYPE
-dfp_CHARLS <- pdata.frame(df_CHARLS, index = c( envCHARLS$flagCity, envCHARLS$flagT ) )
 
 
 # --------------------------------
 # SECTION 6: GARBAGE COLLECTION
 rm( tmp, tmpXname, tmpYname, df_SignifSingle )
-
-
-
-
-
-
 
 
 
