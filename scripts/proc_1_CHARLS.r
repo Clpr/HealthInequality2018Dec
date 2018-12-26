@@ -10,7 +10,7 @@
 
 
 
-
+rm(list=ls())
 
 
 # -------------------------------------
@@ -31,14 +31,45 @@ envCHARLS <- list(
     Output = "./output/proc_1_CHARLS/",  # output directory
     # ----------------------
     Ynames = c( "OUTP1M_RATIO", "CHRONIC_RATIO" ),  # dependents
-    Xcore = c( "AVGINDIINCOME_TOTAL", "AVGEDU" ),  # the two variables we care most
+    Xcore = c( "AVGINDIINCOME_EARN", "AVGEDU" ),  # the two variables we care most
     # ----------------------
     Xnames = c( "" ),  # a name list of selected independents (to regress), filled later
     Xcandidate = c( "" ),  # a name list of potential independents, filled later
     Xcontrol = c(""),  # selected control variables (not includes Xcore)
     Xexpel = c(
-        "NONAGRIHUKOU_RATIO", "AVGCHRONIC_NUM", "HOSP1Y_RATIO", "AVGHOSP1Y_TIMES", "AVGOUTP1M_TIMES", "AVGOUTP1M_REALEXP"
-        ),  # variables to drop, usually those almost-singular, with endogeneity etc
+        "NONAGRIHUKOU_RATIO",
+        # ------------------ outcomes
+        "AVGCHRONIC_NUM", "HOSP1Y_RATIO", "AVGHOSP1Y_TIMES", "AVGOUTP1M_TIMES",  "AVGHOSPNOX_LAST",
+        # ----------------- verbose
+        # "AVGOUTP1M_REALEXP",
+        "INSOTH_RATIO",
+        "RETIRE_RATIO", "RETIREFORMAL_RATIO", "JOBSTATUS_RETI_RATIO",
+        # ------------- asset
+        "AVGINDIASSET_CASHSAVE" ,
+        "AVGINDIASSET_CAPITAL" ,
+        "AVGINDIASSET_GOVBOND" ,
+        "AVGINDIASSET_OTHER" ,
+        "AVGINDIASSET_TOTAL",
+        # ----------------
+        "AVGHOUSASSET_TOTAL",
+        
+        
+        # "AVGINDIINCOME_EARN" ,
+        # ------------- income
+        "AVGHOUSINCOME_CAPITAL" ,
+        "AVGHOUSINCOME_TOTAL",
+        # ------------- income
+        "AVGINDIINCOME_TOTAL",
+        "AVGINDIINCOME_SELF" ,
+        "AVGINDIINCOME_PENSION" ,
+        "AVGINDIINCOME_TRANS" ,
+        "AVGINDIINCOME_OTHER" ,
+        "AVGINDIINCOME_FAMILY" ,
+        "AVGTRANSCHILD_AMT",
+        # ------------- transfer payment
+        "AVGTRANSPAY_TOTAL"
+        
+        ),  # variables to drop, usually those almost-singular, or endogeneity etc
     # ----------------------
     flagCity = "city",  # individual flag (county level)
     flagProv = "province",  # individual flag (province level)
@@ -56,7 +87,7 @@ envCHARLS <- list(
 
 
 # -------------------------------------------------
-# SECTION 1: PROCESSING, AGGREGATING CHARLS DATASET
+# SECTION 1:  DATA PROCESSING
 # NOTE: in this section, we read in the city-level aggregated dataset of harmonized CHARLS data (2011,2013,2015).
 #       because R is quite low-efficient in processing large dataset like CHARLS,
 #       we did this job in SAS and just import the aggregated dataset in this section.
@@ -74,7 +105,7 @@ envCHARLS <- list(
 # Tianhao Zhao
 # Dec 2018
 # ------------
-# 1.0 read in CHARLS original agent-level dataset
+# 1.0 read in city-level CHARLS dataset
 df_CHARLS_backup <- readxl::read_xlsx( envCHARLS$MicroDat )
 names(df_CHARLS_backup)[names(df_CHARLS_backup) == "YEAR"] <- "year"  # for convenient coding later
 # 1.1 a copy of original dataset, work on it
@@ -92,9 +123,19 @@ envCHARLS$Xcandidate <- tmp
 cat("The number of candidate X: ",length(envCHARLS$Xcandidate), "\n\n" )
 cat("They are: ", envCHARLS$Xcandidate, "\n\n")
 # 1.4 re-sort the columns
-df_CHARLS <- df_CHARLS[,c( envCHARLS$flagSampleSize, envCHARLS$flagT, envCHARLS$flagProv, envCHARLS$flagCity, envCHARLS$Ynames, envCHARLS$Xcore, envCHARLS$Xcandidate )]
+df_CHARLS <- df_CHARLS[,c( envCHARLS$flagSampleSize, 
+                           envCHARLS$flagCity, envCHARLS$flagT, envCHARLS$flagProv, 
+                           envCHARLS$Ynames, envCHARLS$Xcore, envCHARLS$Xcandidate )]
 # 1.5 drop NA obs
 df_CHARLS <- na.omit(df_CHARLS)
+
+
+
+
+
+
+
+
 
 
 
@@ -118,34 +159,16 @@ cat("\nSection 2: COLLINEARITY BETWEEN INCOME & EDU\n---------------------------
 #       but we care the INDIVIDUAL TOTAL incomes, and drop other kinds of incomes
 #       i.e. we, for now, do not distinguish different kinds of income sources
 # ------------
-# 2.0 drop other income variables
-tmp <- c(
-    "AVGHOUSINCOME_TOTAL",
-    # "AVGINDIINCOME_TOTAL",  # we use this one!
-    "AVGHOUSINCOME_CAPITAL",
-    "AVGINDIINCOME_EARN",
-    "AVGINDIINCOME_SELF",
-    "AVGINDIINCOME_PENSION",
-    "AVGINDIINCOME_TRANS",
-    "AVGINDIINCOME_OTHER",
-    "AVGINDIINCOME_FAMILY"
-)
-envCHARLS$Xcandidate <- base::setdiff(envCHARLS$Xcandidate, tmp)
-df_CHARLS[,tmp] <- NULL
 
-# change possible income independent
-# names(df_CHARLS)[ names(df_CHARLS) == "AVGHOUSINCOME_TOTAL" ] <- "AVGINDIINCOME_TOTAL"  # want to use <- const!
-
-
-# 2.1 the correlation coef between income & edu:
-cat("Corr(AVGINDIINCOME_TOTAL,AVGEDU) = ", cor(df_CHARLS$AVGINDIINCOME_TOTAL, df_CHARLS$AVGEDU), "\n" )
-# 2.2 regression
-tmp <- lm( AVGINDIINCOME_TOTAL ~ AVGEDU, df_CHARLS )
-# 2.3 replace income with the residuals
-df_CHARLS$AVGINDIINCOME_TOTAL <- residuals(tmp)
-# 2.4 print info
-cat("Corr(resid(AVGINDIINCOME_TOTAL ~ AVGEDU), AVGEDU) = ", cor(df_CHARLS$AVGINDIINCOME_TOTAL, df_CHARLS$AVGEDU), "\nCollinearity Solved\n" )
-
+# # 2.1 the correlation coef between income & edu:
+# cat("Corr(AVGINDIINCOME_EARN,AVGEDU) = ", cor(df_CHARLS[,envCHARLS$Xcore] ), "\n" )
+# # 2.2 regression
+# tmp <- lm( AVGINDIINCOME_EARN ~ AVGEDU, df_CHARLS )
+# # 2.3 replace income with the residuals
+# df_CHARLS$AVGINDIINCOME_EARN <- residuals(tmp)
+# # 2.4 print info
+# cat("Corr(resid(AVGINDIINCOME_EARN ~ AVGEDU), AVGEDU) = ", cor(df_CHARLS[,envCHARLS$Xcore] ), "\nPossible Collinearity Solved\n" )
+# 
 
 
 
@@ -227,8 +250,8 @@ li_PCAres_CHARLS <- list(
 # 3.2 PCA analysis
 # a vector to set max k components for each dependent
 li_PCAk_CHARLS <- list(
-    OUTP1M_RATIO = 9,
-    CHRONIC_RATIO = 11
+    OUTP1M_RATIO = 4,
+    CHRONIC_RATIO = 4
 )
 # 3.2.1 run
 for(tmpYname in envCHARLS$Ynames){

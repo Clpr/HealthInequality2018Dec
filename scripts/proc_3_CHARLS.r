@@ -247,7 +247,7 @@ print(li_Report_CHARLS)
 # output to excel
 openxlsx::write.xlsx(li_Report_CHARLS, file = paste(sep="",envCHARLS$Output,"RegReport_CHARLS.xlsx") )
 
-
+df_Haussman_CHARLS
 
 
 

@@ -190,18 +190,10 @@ cat("\nPlotting ...\n")
 for(tmpYname in envCHARLS$Ynames){
     # 6.1.1 temp slice: pooled health outcome & province tags
     tmp <- tmpdf[,c(tmpYname,envCHARLS$flagProv, "city", "long", "lat" )]
-        # # 6.1.2 averaging by procinve tags (weighted by sample size/population of each county)
-        # tmp <- sqldf::sqldf(paste(sep="",
-        #       "SELECT DISTINCT SUM(",envCHARLS$flagSampleSize," * ",tmpYname,") / SUM(",envCHARLS$flagSampleSize,") AS ",tmpYname,
-        #       ", ",envCHARLS$flagProv," FROM tmp GROUP BY ",envCHARLS$flagProv
-        # ))
-        # 6.1.3 using mapplots.r to get an instance of current map figure
-        # eval(parse(text=paste(sep="",
-        #     "tmpfig <- func_MapProv( tmp$",tmpYname,", tmp$",envCHARLS$flagProv,", vecName = \"",tmpYname,"\" )"
-        # )))
+
     # income -> health outcome
-    tmpfig1 <- func_MapCityXY( tmpdf$AVGINDIINCOME_TOTAL, tmpdf[,tmpYname], tmpdf$lat, tmpdf$long, 
-                               Xname = "AvgIndiIncome_Total", Yname = tmpYname , FontSize = 5,
+    tmpfig1 <- func_MapCityXY( tmpdf$AVGINDIINCOME_EARN, tmpdf[,tmpYname], tmpdf$lat, tmpdf$long, 
+                               Xname = "AVGINDIINCOME_EARN", Yname = tmpYname , FontSize = 5,
                                ColorScale = c("skyblue","red"), CircleScale = c(2,15) )
     # edu -> health outcome
     tmpfig2 <- func_MapCityXY( tmpdf$AVGEDU, tmpdf[,tmpYname], tmpdf$lat, tmpdf$long, 
@@ -232,6 +224,7 @@ cat("\n We have created colored maps for health outcomes and output them to the 
 # --------------------------------------
 # GARBAGE COLLECTION
 rm( tmp, tmpfig1, tmpfig2, tmpYname, tmpdf )
+
 
 
 
