@@ -27,7 +27,7 @@ cat("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 cat("PLEASE NOTE: because we have normalized PCA components, we only do descriptive statistics for income & edu!!!!!!")
 cat("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 # --------------
-li_Descript_CHARLS <- list()  # a list of descriptive statistics
+li_Descript_CHARLS <- list()  # a list of descriptive statistics, based on the datasets of fixed-effect mods
 for(tmpYname in envCHARLS$Ynames){
     # 1.1 get a namelist of all numeric variables, both Y and Xcore
     tmp <- c( tmpYname, envCHARLS$Xcore )

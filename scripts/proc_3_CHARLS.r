@@ -30,6 +30,9 @@ envCHARLS$Output <- "./output/proc_3_CHARLS/"  # alter output directory
 cat("\nSECTION 1: (ROBUST) POOL DATA MODELS ON CHARLS DATASET, ALL FINAL SPECIFICATIONS")
 # NOTE: in this section, we seen the panel data set "dfp_CHARLS" as a pool dataset,
 #       use OLS & GLS to estimate every final specification in li_Eq_CHARLS;
+# 
+# NOTE: using li_Dat_CHARLS (the fixed-effect mods' datasets) + random-effect mods' formulas (no mani-added effect terms)
+# 
 # NOTE: if extra normality tests on residuals required, please use the library nortest:: & shapiro.test()
 
 # 1.0 prepare a collection of estimated models
@@ -39,13 +42,13 @@ li_ModPoolGLS_CHARLS <- list()
 # 1.1 estimation & print summaries
 for(tmpYname in envCHARLS$Ynames){
     # slice a temp dataset
-    tmpdf <- li_Dat_CHARLS[[tmpYname]]
+    tmpdf <- li_Dat_CHARLS[[tmpYname]]  # fixed-effect mods datasets!
     # 1.1.1 estimation
-    li_ModPoolOLS_CHARLS[[tmpYname]] <- lm( li_Eq_CHARLS[[tmpYname]], tmpdf )
-    li_ModPoolGLS_CHARLS[[tmpYname]] <- nlme::gls( li_Eq_CHARLS[[tmpYname]], tmpdf )
+    li_ModPoolOLS_CHARLS[[tmpYname]] <- lm( li_EqRan_CHARLS[[tmpYname]], tmpdf )  # rand-effect mods formula!
+    li_ModPoolGLS_CHARLS[[tmpYname]] <- nlme::gls( li_EqRan_CHARLS[[tmpYname]], tmpdf )
     # 1.1.2 run-time log
     cat("\n---------------------------------------------------------------\n***** FORMULA *****:\n")
-    print( li_Eq_CHARLS[[tmpYname]] ); print("\n")
+    print( li_EqRan_CHARLS[[tmpYname]] ); print("\n")
     # 1.1.3 print summary
     print( summary( li_ModPoolOLS_CHARLS[[tmpYname]] ) )
     print( summary( li_ModPoolGLS_CHARLS[[tmpYname]] ) )
@@ -56,60 +59,60 @@ for(tmpYname in envCHARLS$Ynames){
 
 
 
+# --------------------------------------------
+# SECTION: FIXED INDIVIDUAL EFFECT
+# NOTE: because we use PROVINCE as individuals (but every obs is a city!),
+#       we manually constructed the designed matrix then do regressions
+#       quite diff from random effect models which are directly estimated by plm package,
+#       these fixed-effect mods are estimated by ourselves
+# -------------------
+li_ModFix_CHARLS <- list()  # for fixed individual effect models
+for(tmpYname in envCHARLS$Ynames){
+    # slice a temp dataset
+    tmpdf <- li_Dat_CHARLS[[tmpYname]]
+    
+    # 2.1.1 fixed effect model (FGLS estimator)
+    li_ModFix_CHARLS[[tmpYname]] <- gls( li_EqFix_CHARLS[[tmpYname]], data = tmpdf  )
+                                              
+    # 2.1.4 summary, print the effect models
+    cat("\n---------------------------\n")
+    cat("FIXED INDIVIDUAL EFFECT MODEL: ",tmpYname,"\n")
+    print(   summary(  li_ModFix_CHARLS[[tmpYname]]   )   )
+}
+
+
+
+
+
+
+
+
 
 
 
 
 # -------------------------------------
-## SECTION 2: FIXED INDIVIDUAL EFFECT & RANDOM INDIVIDUAL EFFECT MODEL & HAUSSMAN
-cat("\nSECTION 2: FIXED INDIVIDUAL EFFECT & RANDOM INDIVIDUAL EFFECT MODEL")
+## SECTION: RANDOM INDIVIDUAL EFFECT MODEL & HAUSSMAN
+cat("\nSECTION: RANDOM INDIVIDUAL EFFECT MODEL")
 # --------------
 # 2.0 prepare collections
-li_ModFix_CHARLS <- list()  # for fixed individual effect models
 li_ModRan_CHARLS <- list()  # for random individual effect models
-df_Haussman_CHARLS <- data.frame(
-    Equation = envCHARLS$Ynames,  # dependents
-    Chisq = 0,  # Haussman Statistics (X2)
-    pVal_Chisq = 0,  # p-value
-    ChisqRobust = 0,  # robust Haussman Statistics (through an auxiliary regression)
-    pVal_ChisqRobust = 0  # p-value
-)
+
 
 # 2.1 loop on health outcomes, estimate & perform Haussman test
 for(tmpYname in envCHARLS$Ynames){
     # slice a temp dataset
     tmpdf <- li_DatPlm_CHARLS[[tmpYname]]
 
-    # 2.1.1 fixed effect model (OLS estimator + robustSE)
-    li_ModFix_CHARLS[[tmpYname]] <- plm::plm( li_Eq_CHARLS[[tmpYname]], data = tmpdf, 
-                                              effect = "individual", model = "within" )
     # 2.1.2 random effect model (FGLS estimator)
-    li_ModRan_CHARLS[[tmpYname]] <- plm::pggls( li_Eq_CHARLS[[tmpYname]], data = tmpdf, 
+    li_ModRan_CHARLS[[tmpYname]] <- plm::pggls( li_EqRan_CHARLS[[tmpYname]], data = tmpdf, 
                                               effect = "individual", model = "random" )
-    
-    # 2.1.3 Haussman test (H0: random effect, if phtest(fixed, random))
-    tmp <- plm::phtest( li_ModFix_CHARLS[[tmpYname]], li_ModRan_CHARLS[[tmpYname]], method = "chisq" )
-    df_Haussman_CHARLS$Chisq[df_Haussman_CHARLS$Equation == tmpYname] <- tmp$statistic
-    df_Haussman_CHARLS$pVal_Chisq[df_Haussman_CHARLS$Equation == tmpYname] <- tmp$p.value
-    # 2.1.4 robust Haussman test (H0: random effect)
-    tmp <- plm::phtest( li_ModFix_CHARLS[[tmpYname]], li_ModRan_CHARLS[[tmpYname]], method = "aux",
-                        vcov = function(x) plm::vcovHC(x, method="white2",type="HC3")   )
-    df_Haussman_CHARLS$ChisqRobust[df_Haussman_CHARLS$Equation == tmpYname] <- tmp$statistic
-    df_Haussman_CHARLS$pVal_ChisqRobust[df_Haussman_CHARLS$Equation == tmpYname] <- tmp$p.value
     
     # 2.1.4 summary, print the effect models
     cat("\n---------------------------\n")
-    cat("FIXED INDIVIDUAL EFFECT MODEL: ",tmpYname,"\n")
-    print(   summary(  li_ModFix_CHARLS[[tmpYname]], vcov = vcovHC(li_ModFix_CHARLS[[tmpYname]])  )   )
+    cat("RANDOM INDIVIDUAL EFFECT MODEL: ",tmpYname,"\n")
+    print(   summary(  li_ModRan_CHARLS[[tmpYname]]   )   )
 }
-
-# 2.2 print & output the results of Haussman tests
-cat("\n---------------------------\n")
-cat("HAUSSMAN TEST RESULT; H0: SHOULD USE RANDOM INDIVIDUAL EFFECT","\n")
-print(df_Haussman_CHARLS)
-write.csv(df_Haussman_CHARLS, file = paste(sep="",envCHARLS$Output,"HaussmanTest_CHARLS.csv"))
-
-
 
 
 
@@ -151,51 +154,32 @@ write.csv(df_NormTest_CHARLS,file = paste(sep="",envCHARLS$Output,"NormTest_CHAR
 
 
 # -------------------------------------
-## SECTION 4: (ROBUST) TWO-WAYS FIXED EFFECT MODEL & CONSISTENCY WITH ONE-WAY FIXED INDIVIDUAL EFFECT MODEL
-cat("\nSECTION 4: (ROBUST) TWO-WAYS FIXED EFFECT MODEL & CONSISTENCY WITH ONE-WAY FIXED INDIVIDUAL EFFECT MODEL")
+## SECTION 4: (ROBUST) TWO-WAYS FIXED EFFECT MODEL
+# NOTE: now, we manually construct datasets!
+cat("\nSECTION 4: (ROBUST) TWO-WAYS FIXED EFFECT MODEL")
 # --------------
+li_EqTwo_CHARLS <- list()
 li_ModTwo_CHARLS <- list()
-df_exHaussman_CHARLS <- df_Haussman_CHARLS  # use the same structure
 
 # 4.1 estimate & Haussman
 for(tmpYname in envCHARLS$Ynames){
     # slice a temp data
-    tmpdf <- li_DatPlm_CHARLS[[tmpYname]]
-    
-    # 4.1.1 estimate a two-way model
-    li_ModTwo_CHARLS[[tmpYname]] <- plm::plm( li_Eq_CHARLS[[tmpYname]], tmpdf, effect = "twoways", model = "within" )
-    # 4.1.2 Haussman test (original)
-    tmp <- df_exHaussman_CHARLS$Equation == tmpYname
-    tmp2 <- plm::phtest( li_ModFix_CHARLS[[tmpYname]], li_ModTwo_CHARLS[[tmpYname]] )
-    df_exHaussman_CHARLS$Chisq <- tmp2$statistic
-    df_exHaussman_CHARLS$pVal_Chisq <- tmp2$p.value
-    # 4.1.2 Robust Haussman test (auxiliary regression based)
-    tmp2 <- plm::phtest( li_ModFix_CHARLS[[tmpYname]], li_ModTwo_CHARLS[[tmpYname]], method = "aux" )
-    df_exHaussman_CHARLS$ChisqRobust <- tmp2$statistic
-    df_exHaussman_CHARLS$pVal_ChisqRobust <- tmp2$p.value
+    tmpdf <- li_Dat_CHARLS[[tmpYname]]
+    # construct fixed time effect
+    tmpdf <- func_MatDesignFixEffect( tmpdf, IndiName = envCHARLS$flagT )
+    # construct new equation
+    tmpxs <- base::setdiff( names(tmpdf), envCHARLS$Ynames  )
+    li_EqTwo_CHARLS[[tmpYname]] <- func_GetEq( tmpYname, tmpxs, KeepStr = FALSE )
+        
+    # 4.1.1 estimate a two-way fixed effect model
+    li_ModTwo_CHARLS[[tmpYname]] <- nlme::gls( li_EqTwo_CHARLS[[tmpYname]], tmpdf  )
     
     # print the two-way model
-    print( summary( li_ModTwo_CHARLS[[tmpYname]], vcov = vcovHC(li_ModTwo_CHARLS[[tmpYname]])   ) )  # summary, using robust cov-mat estimates
+    print( summary( li_ModTwo_CHARLS[[tmpYname]]  ) )  # summary
     
 }
 
-# 4.2 convert the results of Haussman test to a df, then output
-df_exHaussman_CHARLS <- data.frame(df_exHaussman_CHARLS)
-write.csv(df_exHaussman_CHARLS, file=paste(sep="",envCHARLS$Output,"exHaussman_2Wayor1Way_CHARLS.csv"))
 
-
-
-
-
-
-
-# -------------------------------------
-## SECTION 5: (ROBUST) ADD EXTRA POSSIBLE VARIABLE: 
-# NOTE: 
-# 
-# 
-# 
-# ----------
 
 
 
@@ -209,14 +193,14 @@ write.csv(df_exHaussman_CHARLS, file=paste(sep="",envCHARLS$Output,"exHaussman_2
 li_Report_CHARLS <- list()  # a list to save formatted reports
 for(tmpYname in envCHARLS$Ynames){
     # 6.1 temp df
-    tmpdf1 <- format_plm( summary(li_ModFix_CHARLS[[tmpYname]] , vcov = vcovHC(li_ModFix_CHARLS[[tmpYname]])  ) ,
-                          Yname = paste(sep="",tmpYname,"_FixIndi_OLS_HCse") )  # fixed  individual effect, OLS estimator + robustSE
+    tmpdf1 <- format_gls( summary(li_ModFix_CHARLS[[tmpYname]]  ) ,
+                          Yname = paste(sep="",tmpYname,"_FixIndi_FGLS") )  # fixed  individual effect, OLS estimator + robustSE
     tmpdf2 <- format_pggls( summary(li_ModRan_CHARLS[[tmpYname]]) ,
                             Yname = paste(sep="",tmpYname,"_RanIndi_FGLS") )  # random individual effect, FGLS estimator
-    tmpdf3 <- format_plm(   summary(li_ModTwo_CHARLS[[tmpYname]] ,  vcov = vcovHC(li_ModTwo_CHARLS[[tmpYname]]) ) , 
-                            Yname = paste(sep="",tmpYname,"_TwoWays_OLS_HCse") )  # two-ways fixed effect model + robustSE
+    tmpdf3 <- format_gls(   summary(li_ModTwo_CHARLS[[tmpYname]]    ) , 
+                            Yname = paste(sep="",tmpYname,"_TwoWays_FGLS") )  # two-ways fixed effect model + robustSE
     tmpdf4 <- format_gls(   summary(li_ModPoolGLS_CHARLS[[tmpYname]])  ,
-                            Yname = paste(sep="",tmpYname,"_Pooling_GLS") )  # Pooling, GLS estimator
+                            Yname = paste(sep="",tmpYname,"_Pooling_FGLS") )  # Pooling, GLS estimator
     tmpdf5 <- format_lm(    summary(li_ModPoolOLS_CHARLS[[tmpYname]])  ,
                             Yname = paste(sep="",tmpYname,"_Pooling_OLS") )  # Pooling, OLS estimator
     # 6.2 merging
@@ -247,7 +231,7 @@ print(li_Report_CHARLS)
 # output to excel
 openxlsx::write.xlsx(li_Report_CHARLS, file = paste(sep="",envCHARLS$Output,"RegReport_CHARLS.xlsx") )
 
-df_Haussman_CHARLS
+
 
 
 

@@ -22,6 +22,7 @@ library(plm)  # panel data models
 library(openxlsx)  # easy xlsx IO
 library(psych)  # easiser PCA
 source("./src/mathtools.r")
+source("./src/paneltools.r")
 # library(plyr)  # sql-like dataframe operations
 
 
@@ -31,12 +32,13 @@ envCHARLS <- list(
     Output = "./output/proc_1_CHARLS/",  # output directory
     # ----------------------
     Ynames = c( "OUTP1M_RATIO", "CHRONIC_RATIO" ),  # dependents
-    Xcore = c( "AVGINDIINCOME_EARN", "AVGEDU" ),  # the two variables we care most
+    Xcore = c( "AVGINDIINCOME_EARN", "AVGINDIINCOME_EARN2", "AVGEDU" ),  # the two variables we care most
     # ----------------------
     Xnames = c( "" ),  # a name list of selected independents (to regress), filled later
     Xcandidate = c( "" ),  # a name list of potential independents, filled later
     Xcontrol = c(""),  # selected control variables (not includes Xcore)
     Xexpel = c(
+        # ------------------ duplicated
         "NONAGRIHUKOU_RATIO",
         # ------------------ outcomes
         "AVGCHRONIC_NUM", "HOSP1Y_RATIO", "AVGHOSP1Y_TIMES", "AVGOUTP1M_TIMES",  "AVGHOSPNOX_LAST",
@@ -50,11 +52,8 @@ envCHARLS <- list(
         "AVGINDIASSET_GOVBOND" ,
         "AVGINDIASSET_OTHER" ,
         "AVGINDIASSET_TOTAL",
-        # ----------------
+        # ---------------- asset
         "AVGHOUSASSET_TOTAL",
-        
-        
-        # "AVGINDIINCOME_EARN" ,
         # ------------- income
         "AVGHOUSINCOME_CAPITAL" ,
         "AVGHOUSINCOME_TOTAL",
@@ -71,8 +70,8 @@ envCHARLS <- list(
         
         ),  # variables to drop, usually those almost-singular, or endogeneity etc
     # ----------------------
-    flagCity = "city",  # individual flag (county level)
-    flagProv = "province",  # individual flag (province level)
+    flagCity = "province",  # individual flag (province level)  ps: well ... just a mark
+    flagProv = "city",  # individual flag (city level)
     flagT = "year",  # time flag
     flagSampleSize = "SAMPLESIZE",   # sample size of each city, used later to weight plotting data
     # ----------------------
@@ -91,11 +90,11 @@ envCHARLS <- list(
 # NOTE: in this section, we read in the city-level aggregated dataset of harmonized CHARLS data (2011,2013,2015).
 #       because R is quite low-efficient in processing large dataset like CHARLS,
 #       we did this job in SAS and just import the aggregated dataset in this section.
-#       if you need more information about how we did the data-processing job,
+#       if you need more information about how we did the data-processing,
 #       please refer to README.md;
 #       I also attached the SAS program, two community-city-province index datasets, 
 #       the codebook of the harmonized CHARLS data, and a detailed data dictionary in "./data/CHARLSdat/".
-#       you may just run the "H_CHARLS_Clean.sas", when downloaded the original dataset from CHARLS's website. (too large, not attached)
+#       you may just run the "H_CHARLS_Clean.sas", when downloaded the original dataset from CHARLS's website. (not attached)
 #       but pls note: because Stata13 data is incompatible to ANGTHING but Stata13 itself, 
 #       I had to convert the very original CAHRLS dataset to SPSS data (.sav) then read it into SAS. (be easy, no data, tags or labels lost)
 #       please do so if you want to re-process our data aggregation process by yourself.
@@ -108,17 +107,27 @@ envCHARLS <- list(
 # 1.0 read in city-level CHARLS dataset
 df_CHARLS_backup <- readxl::read_xlsx( envCHARLS$MicroDat )
 names(df_CHARLS_backup)[names(df_CHARLS_backup) == "YEAR"] <- "year"  # for convenient coding later
+# construct a sqaured term of AVGINDIINCOME_EARN
+df_CHARLS_backup$AVGINDIINCOME_EARN2 <- (df_CHARLS_backup$AVGINDIINCOME_EARN)^2
 # 1.1 a copy of original dataset, work on it
 df_CHARLS <- df_CHARLS_backup
-# 1.2 save the namelist of candidate control variables
-tmp <- base::setdiff(names(df_CHARLS),envCHARLS$Ynames)
-tmp <- base::setdiff(tmp,envCHARLS$Xcore)
-tmp <- base::setdiff(tmp,envCHARLS$flagT)
-tmp <- base::setdiff(tmp,envCHARLS$flagProv)
-tmp <- base::setdiff(tmp,envCHARLS$flagCity)
-tmp <- base::setdiff(tmp,envCHARLS$flagSampleSize)
-tmp <- base::setdiff(tmp,envCHARLS$Xexpel)
-envCHARLS$Xcandidate <- tmp
+
+# # 1.2 save the namelist of candidate control variables
+# tmp <- base::setdiff(names(df_CHARLS),envCHARLS$Ynames)
+# tmp <- base::setdiff(tmp,envCHARLS$Xcore)
+# tmp <- base::setdiff(tmp,envCHARLS$flagT)
+# tmp <- base::setdiff(tmp,envCHARLS$flagProv)
+# tmp <- base::setdiff(tmp,envCHARLS$flagCity)
+# tmp <- base::setdiff(tmp,envCHARLS$flagSampleSize)
+# tmp <- base::setdiff(tmp,envCHARLS$Xexpel)
+envCHARLS$Xcandidate <- c(   # prepare to select & PCA
+    "AVGAGE", "MALE_RATIO", "MARITAL_RATIO", "MARITAL_AVELEN",  "URBAN_RATIO",  
+    "AVGBMI",  "DRINK1Y_RATIO", "SMOKEEVER_RATIO",  
+    "SMOKENOW_RATIO",    "AVGSMOKENUM",   "AVGHOSP1Y_REALEXP", "AVGOUTP1M_REALEXP", "INSURANCE_RATIO",   "INSGOV_RATIO",  "INSPRI_RATIO",  "AVGEXP1W_FOOD",    
+    "AVGEXP1Y_TOTAL",    "CHILDCARE_RATIO",   "CHILDCORESD_RATIO", "CHILDLVNEAR_RATIO", "SOCWK_RATIO",   "TRANSCHILD_RATIO",  "WORK_RATIO",    
+    "JOBSTATUS_AGRI_RATIO", "JOBSTATUS_NAGE_RATIO", "JOBSTATUS_NAGS_RATIO", "JOBSTATUS_NAGF_RATIO", "JOBSTATUS_UNEM_RATIO", "JOBSTATUS_NEWK_RATIO"
+)
+
 # 1.3 print info
 cat("The number of candidate X: ",length(envCHARLS$Xcandidate), "\n\n" )
 cat("They are: ", envCHARLS$Xcandidate, "\n\n")
@@ -147,28 +156,6 @@ df_CHARLS <- na.omit(df_CHARLS)
 
 # ---------------------------------------
 # SECTION 2: solve the problem of collinearty between the two core vars (income & edu)
-cat("\nSection 2: COLLINEARITY BETWEEN INCOME & EDU\n-----------------------------------------------\n")
-# NOTE: in CHARLS, agents are over 45 years old, they had finished education when interviewed,
-#       and were receiving working inocmes or retired. 
-#       both working & retirement have incomes, e.g. salary when working and pension benefites when retired.
-#       Therefore, edu may affect income, but income cannot affect edu.
-#       there is collinearity between the two, but the channel is one-way & clear (edu -> income).
-#       Thus, We use edu to regress income, then use the residuals to replace income.
-#       Then, the collinearity is solved, and we can clearly discuss the "pure" effect of income & edu
-# NOTE: different from CHARLS, we have multiple candidates about incomes now. 
-#       but we care the INDIVIDUAL TOTAL incomes, and drop other kinds of incomes
-#       i.e. we, for now, do not distinguish different kinds of income sources
-# ------------
-
-# # 2.1 the correlation coef between income & edu:
-# cat("Corr(AVGINDIINCOME_EARN,AVGEDU) = ", cor(df_CHARLS[,envCHARLS$Xcore] ), "\n" )
-# # 2.2 regression
-# tmp <- lm( AVGINDIINCOME_EARN ~ AVGEDU, df_CHARLS )
-# # 2.3 replace income with the residuals
-# df_CHARLS$AVGINDIINCOME_EARN <- residuals(tmp)
-# # 2.4 print info
-# cat("Corr(resid(AVGINDIINCOME_EARN ~ AVGEDU), AVGEDU) = ", cor(df_CHARLS[,envCHARLS$Xcore] ), "\nPossible Collinearity Solved\n" )
-# 
 
 
 
@@ -186,7 +173,7 @@ cat("\nSection 3: SELECT BACKGROUND/CONTROL VARIABLES\n-------------------------
 # 3.1 prepare a df to save significance of single-variable regressions
 df_SignifSingle <- data.frame(
     IndicatorName = base::setdiff(envCHARLS$Xcandidate,envCHARLS$Xcore),  # we regress all indicators other than the core variables (income & edu)
-    OUTP1M_RATIO = Inf,  # the p-val of the current indicator in model (illnessratio ~ 1 + CurrentIndicator)
+    # OUTP1M_RATIO = Inf,  # the p-val of the current indicator in model (illnessratio ~ 1 + CurrentIndicator)
     CHRONIC_RATIO = Inf # the same
 )
 
@@ -195,11 +182,11 @@ for(tmpYname in envCHARLS$Ynames ){
     for(tmpXname in df_SignifSingle$IndicatorName ){
         # 3.2.1 regression
         eval(parse(text=paste(sep="",
-                              "tmp <- summary(lm(", tmpYname, "~", tmpXname, ", data = df_CHARLS ))"
+                              "tmp <- summary(gls(", tmpYname, "~", " AVGINDIINCOME_EARN + AVGEDU + " ,tmpXname, ", data = df_CHARLS ))"
         )))
         # 3.2.2 get p-val
         eval(parse(text=paste(sep="",
-                              "df_SignifSingle[df_SignifSingle$IndicatorName == \"", tmpXname, "\",\"", tmpYname, "\"] <- tmp$coefficients[2,4]"  # extract p-value 
+                              "df_SignifSingle[df_SignifSingle$IndicatorName == \"", tmpXname, "\",\"", tmpYname, "\"] <- tmp$tTable[\"",tmpXname,"\",4]"  # extract p-value 
         )))
     }    
 }
@@ -250,8 +237,8 @@ li_PCAres_CHARLS <- list(
 # 3.2 PCA analysis
 # a vector to set max k components for each dependent
 li_PCAk_CHARLS <- list(
-    OUTP1M_RATIO = 4,
-    CHRONIC_RATIO = 4
+    OUTP1M_RATIO = 6,
+    CHRONIC_RATIO = 7
 )
 # 3.2.1 run
 for(tmpYname in envCHARLS$Ynames){
@@ -265,7 +252,8 @@ for(tmpYname in envCHARLS$Ynames){
         # varmax()  # rotating
     # print
     cat("Dependent: ",tmpYname,"\n")
-    print(  li_PCAres_CHARLS[[tmpYname]]  )
+    print(  li_PCAres_CHARLS[[tmpYname]]  ); cat("\nEigen Values: ")
+    print( li_PCAres_CHARLS[[tmpYname]]$values )
     cat("\n----------------------\n")
 }
 # 3.2.2 output (openxlsx can make every element in a list as a sheet in excel)
@@ -290,51 +278,66 @@ openxlsx::write.xlsx(  tmp1  , paste(sep="",envCHARLS$Output,"PCAloading_CHARLS.
 
 
 
+# ------------------------------- NOTE: different from NHSS! because we use province as individual now
+
+# 3.4 construct corresponding datasets
+li_Dat_CHARLS <- list()  # general dataset, for fixed effect models
+li_DatPlm_CHARLS <- list()  # plm indexed dataset
+for(tmpYname in envCHARLS$Ynames){
+    # extract principle components of current Y
+    tmp <- li_PCAres_CHARLS[[tmpYname]]$scores
+    # merge it with Y, Xcore, tags (indi, time)
+    # NOTE: we will MANUALLY estimate fixed effects
+    li_Dat_CHARLS[[tmpYname]] <- data.frame( df_CHARLS[,c( envCHARLS$flagT, envCHARLS$flagCity, tmpYname, envCHARLS$Xcore )] , tmp ) # flagCity, in fact, just indicates what individual variable we use, not only "city"
+    # parse individual tags to a designed dataframe
+    li_Dat_CHARLS[[tmpYname]] <- func_MatDesignFixEffect( li_Dat_CHARLS[[tmpYname]], IndiName = envCHARLS$flagCity )
+    # this version (pdata.frame), only used to estimate RANDOM EFFECT
+    li_DatPlm_CHARLS[[tmpYname]] <- plm::pdata.frame(  data.frame( df_CHARLS[,c( envCHARLS$flagT, envCHARLS$flagProv, tmpYname, envCHARLS$Xcore )] , tmp )  ,
+                                                       index = c( envCHARLS$flagProv, envCHARLS$flagT ) ) # look, we change flagCity to flagProv! (well, it is REAL city now ...)
+}
+
+
 
 
 
 
 
 # 3.2 construct a list to save the namelists of independents (Xcore + Pca) for every specification
-li_Xnames_CHARLS <- list()
+li_XnamesFix_CHARLS <- list()  # for fixed effects
+li_XnamesRan_CHARLS <- list()  # for random effects & pooling
+
 for(tmpYname in envCHARLS$Ynames){
-    li_Xnames_CHARLS[[tmpYname]] <- c( envCHARLS$Xcore, paste(sep="","RC", 1:li_PCAk_CHARLS[[tmpYname]]  )  )
+    # for random effect mods
+    li_XnamesRan_CHARLS[[tmpYname]] <- c( envCHARLS$Xcore, paste(sep="","RC", 1:li_PCAk_CHARLS[[tmpYname]]  )  )
+    # for fixed effect mods
+    tmp <- c( envCHARLS$Xcore, base::setdiff( names(li_Dat_CHARLS[[tmpYname]]), envCHARLS$Ynames  )    )
+    tmp <- base::setdiff( tmp, envCHARLS$flagT )
+    li_XnamesFix_CHARLS[[tmpYname]] <- tmp
 }
-
-
-
-
 
 
 
 
 
 # 3.3 construct final specifications
-li_Eq_CHARLS <- list()
+li_EqFix_CHARLS <- list()  # for fixed effect mods
+li_EqRan_CHARLS <- list()  # for random effect mods
 for(tmpYname in envCHARLS$Ynames){
     # final specifications: y ~ income + edu + PC1 + ...
-    li_Eq_CHARLS[[tmpYname]] <- func_GetEq( tmpYname,  li_Xnames_CHARLS[[tmpYname]]  ,
+    li_EqFix_CHARLS[[tmpYname]] <- func_GetEq( tmpYname,  li_XnamesFix_CHARLS[[tmpYname]]  ,
                                           Intercept = TRUE, KeepStr = FALSE
     )
+    li_EqRan_CHARLS[[tmpYname]] <- func_GetEq( tmpYname,  li_XnamesRan_CHARLS[[tmpYname]]  ,
+                                               Intercept = TRUE, KeepStr = FALSE
+    )
     # print final specifications
-    print(li_Eq_CHARLS[[tmpYname]]); cat("------------------------\n")
+    print(li_EqFix_CHARLS[[tmpYname]]);print(li_EqRan_CHARLS[[tmpYname]]);  
+    cat("------------------------\n")
 }
 
 
 
 
-
-
-# 3.4 construct corresponding datasets
-li_Dat_CHARLS <- list()  # general dataset
-li_DatPlm_CHARLS <- list()  # plm indexed dataset
-for(tmpYname in envCHARLS$Ynames){
-    # extract principle components of current Y
-    tmp <- li_PCAres_CHARLS[[tmpYname]]$scores
-    # merge it with Y, Xcore, tags (indi, time)
-    li_Dat_CHARLS[[tmpYname]] <- data.frame( df_CHARLS[,c( envCHARLS$flagT, envCHARLS$flagCity, tmpYname, envCHARLS$Xcore )] , tmp )
-    li_DatPlm_CHARLS[[tmpYname]] <- plm::pdata.frame( li_Dat_CHARLS[[tmpYname]], index = c( envCHARLS$flagCity, envCHARLS$flagT ) )
-}
 
 
 
@@ -349,6 +352,10 @@ cat("\nSection 4: VIF OF FINAL SPECIFICATIONS\n---------------------------------
 # NOTE: up to now, we have finished the variable selection for CHARLS dataset;
 #       the results are saved in li_PCAk_CHARLS, li_PCAres_CHARLS, li_Eq_CHARLS etc;
 #       then we compute VIF for each specification and print:
+# 
+# NOTE: in fact, we only need to compute the VIF of random-effect specifications
+# 
+
 cat("up to now, we have finished the variable selection for CHARLS dataset.")
 cat("then we compute VIF for each specification and print:\n")
 # -------
@@ -357,7 +364,7 @@ for(tmpYname in envCHARLS$Ynames){
     # get temp dataset
     tmp <- li_Dat_CHARLS[[tmpYname]]
     # compute VIF
-    li_VIF_CHARLS[[tmpYname]] <- car::vif( lm( li_Eq_CHARLS[[tmpYname]], tmp ) )
+    li_VIF_CHARLS[[tmpYname]] <- car::vif( lm( li_EqRan_CHARLS[[tmpYname]], tmp ) )
     # print
     print(li_VIF_CHARLS[[tmpYname]]); cat("----------------------------\n")
 }

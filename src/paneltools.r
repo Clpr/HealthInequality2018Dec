@@ -207,26 +207,55 @@ format_lm <- function( summod, digits = 4, Yname = formula(summod)[[2]] ){
 
 
 
-
-
-
+# ----------------------------------
+# function: construct a designed matrix for panels using custom individual (fixed) effects
+# NOTE: e.g, every obs is a city, but you may want to use province as your individual (fixed) effect
+# NOTE: in fact, it can also be used to construct general dummy variables, time fixed effet etc.
+func_MatDesignFixEffect <- function( df, IndiName = NULL ){
+    # input:
+    # 1. df: a dataframe, not a pdata.frame
+    # 2. IndiName: a string, indicating which variable you wanna use as an individual effect term
+    # output:
+    # 1. ddf: a designed matrix
+    # example:
+    # province = c("A","B","c"); input IndiName = "province", then you will get 3-1=2 new variables named as province_A, province_B (auto drop the last one); and, original province variable will be deleted
+    # --------------------
+    # 1. extract the target variable as factor 
+    eval(parse(text=paste(sep="",
+        "tmpvar <- as.factor( as.character( df$",IndiName,"  ) )"
+    )))
+    # 2. copy a df, then drop the extracted variable
+    ddf <- df; ddf[,IndiName] <- NULL
+    # 2. get levels, then drop the last one (singularity avoided)
+    tmplev <- levels(tmpvar); tmplev <- tmplev[1:length(tmplev)-1]
+    # 3. construct names of added variables
+    tmpxnames <- paste(sep="_", IndiName, tmplev )
+    # 4. traversal on the new variables, initialization, then assgining values
+    for(x in 1:length(tmpxnames) ){
+        eval(parse(text=paste(sep="",
+            "ddf$",tmpxnames[x]," <- 0; ","ddf$",tmpxnames[x],"[tmpvar == \"",tmplev[x],"\"] <- 1"
+        )))
+    }
+    # 5. return
+    return(ddf)
+}
 
 
 # 
-# tmp1 <- summary(li_ModFix_NHSS$illnessratio)
-# tmp2 <- summary(li_ModRan_NHSS$illnessratio)
-# tmp3 <- summary(li_ModTwo_NHSS$illnessratio)
-# tmp4 <- summary(li_ModPoolOLS_NHSS$illnessratio)
-# tmp5 <- summary(li_ModPoolGLS_NHSS$illnessratio)
-# 
-# tmp1$CoefTable
-# tmp2$CoefTable
-# tmp3$coefficients
-# tmp4$coefficients
-# tmp5$tTable
-# 
-# 
-# summod <- tmp4
+# df <- df_CHARLS_backup
+# IndiName = "province"
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
