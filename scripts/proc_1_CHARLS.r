@@ -364,12 +364,12 @@ for(tmpYname in envCHARLS$Ynames){
     # get temp dataset
     tmp <- li_Dat_CHARLS[[tmpYname]]
     # compute VIF
-    li_VIF_CHARLS[[tmpYname]] <- car::vif( lm( li_EqRan_CHARLS[[tmpYname]], tmp ) )
+    li_VIF_CHARLS[[tmpYname]] <- data.frame( car::vif( lm( li_EqRan_CHARLS[[tmpYname]], tmp ) )  )
     # print
     print(li_VIF_CHARLS[[tmpYname]]); cat("----------------------------\n")
 }
 # output to xlsx
-openxlsx::write.xlsx( li_VIF_CHARLS, paste(sep="",envCHARLS$Output,"VIF_CHARLS.xlsx") )
+openxlsx::write.xlsx( li_VIF_CHARLS, paste(sep="",envCHARLS$Output,"VIF_CHARLS.xlsx"), rowNames = TRUE )
 
 
 

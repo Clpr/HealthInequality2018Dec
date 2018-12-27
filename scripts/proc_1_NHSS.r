@@ -318,12 +318,12 @@ for(tmpYname in envNHSS$Ynames){
     # get temp dataset
     tmp <- li_Dat_NHSS[[tmpYname]]
     # compute VIF
-    li_VIF_NHSS[[tmpYname]] <- car::vif( lm( li_EqRan_NHSS[[tmpYname]], tmp ) )
+    li_VIF_NHSS[[tmpYname]] <- data.frame( car::vif( lm( li_EqRan_NHSS[[tmpYname]], tmp ) )  )
     # print
     print(li_VIF_NHSS[[tmpYname]]); cat("----------------------------\n")
 }
 # output to xlsx
-openxlsx::write.xlsx( li_VIF_NHSS, paste(sep="",envNHSS$Output,"VIF_NHSS.xlsx") )
+openxlsx::write.xlsx( li_VIF_NHSS, paste(sep="",envNHSS$Output,"VIF_NHSS.xlsx"), rowNames = TRUE )
 
 
 
