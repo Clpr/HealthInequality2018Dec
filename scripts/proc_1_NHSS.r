@@ -8,6 +8,7 @@
 # Dec 2018
 # -------------------------------------
 
+# rm(list=ls()) # clear
 
 # -------------------------------------
 ## SECTION 0: ENVIRONMENT
@@ -17,6 +18,7 @@ library(plm)  # panel data models
 library(openxlsx)  # easy xlsx
 library(psych)  # easy PCA
 source("./src/mathtools.r")
+source("./src/paneltools.r")
 
 # environment pars
 # NOTE: Xcandidates are selected through economic analysis (pls refer to our paper), 
@@ -29,7 +31,7 @@ envNHSS <- list(
     Xcandidate = c( "" ),  # a name list of potential independents, filled later
     Xcontrol = c(""),  # selected control variables (not includes Xcore)
     # ----------------------
-    Xcore = c( "income", "edu" ),  # the two variables we care most
+    Xcore = c( "income", "income2", "edu" ),  # the two variables we care most, income2 is the quaratic term of income
     # ----------------------
     # in addition to flagCounty, flagProv, flagT, other variable names to exclude
     # NOTE: we also expelled those variables which were not collected in both 1993 & 1998 (NA in both the years) (structural losses)
@@ -41,8 +43,8 @@ envNHSS <- list(
     # ----------------------
     Xisflag = c( "urban" ),  # marks which (potential) independents are flags (1/0)
     # ----------------------
-    flagCounty = "ID",  # individual flag (county level)
-    flagProv = "province",  # individual flag (province level)
+    flagCounty = "province",  # individual flag (of FIXED effect terms)
+    flagProv = "ID",  # individual flag (of RANDOM effect terms)
     flagLevel = "level",  # administration level, e.g. big city, middle city, type-I rural area etc
     flagT = "year",  # time flag
     flagSampleSize = "population",   # sample size (or proxy, e.g. population) of each city, used later to weight plotting data
@@ -66,21 +68,27 @@ cat("\nSection 1: DATA READING\n-----------------------------------------------\
 # 1.0 read in NHSS data (pre-processed)
 df_NHSSraw <- read_xlsx( envNHSS$Filepath )
 
+# convert income to thousand yuan (because its square may leads to exact singularity in regression)
+df_NHSSraw$income <- df_NHSSraw$income / 1000
+# construct a quadratic term of income
+df_NHSSraw$income2 <- (df_NHSSraw$income)^2
+
 # 1.1 drop all 1993 data
 df_NHSSraw <- df_NHSSraw[df_NHSSraw[,envNHSS$flagT] != 1993, ]
 
-# 1.2 all potential X, and save their names to the environment dict
+# 1.2 all potential control variables, and save their names to the environment dict
 tmp <- names(df_NHSSraw) # a temp var to store names of all variables
 tmp <- base::setdiff( tmp, envNHSS$Ynames )  # drop Y names
+tmp <- base::setdiff( tmp, envNHSS$Xcore )  # drop core X
 tmp <- base::setdiff( tmp, c( envNHSS$flagCounty, envNHSS$flagLevel, envNHSS$flagProv, envNHSS$flagT) )  # drop flags
 tmp <- base::setdiff( tmp, envNHSS$ExpelVar )  # drop irrelevent, info, assistant vars
 tmp <- base::setdiff( tmp, envNHSS$flagSampleSize )  # sample size is not used as an independent variable  
 envNHSS$Xcandidate <- tmp  # get potential regressors (namelist)
-cat("The number of candidate X: ",length(envNHSS$Xcandidate), "\n\n" )  # print info
+cat("The number of candidate control variables: ",length(envNHSS$Xcandidate), "\n\n" )  # print info
 cat("They are: ", envNHSS$Xcandidate, "\n\n")
 
 # 1.3 slice the raw dataset (flags, Y, potential X)
-tmp <- c( envNHSS$flagSampleSize, envNHSS$flagCounty, envNHSS$flagLevel, envNHSS$flagProv, envNHSS$flagT, envNHSS$Ynames, envNHSS$Xcandidate)
+tmp <- c( envNHSS$flagSampleSize, envNHSS$flagCounty, envNHSS$flagLevel, envNHSS$flagProv, envNHSS$flagT, envNHSS$Ynames, envNHSS$Xcore, envNHSS$Xcandidate)
 df_NHSS <- df_NHSSraw[,tmp]
 
 # 1.4 drop all obs with NA
@@ -106,7 +114,7 @@ tmp <- lm( income ~ edu, data = df_NHSS )
 # 2.2 replace income with the residuals
 df_NHSS$income <- residuals.lm(tmp)
 cat("Corr(resid(income ~ edu), edu) = ", cor(df_NHSS$income, df_NHSS$edu), "\nCollinearity Solved\n" )
-
+df_NHSS$income2 <- (df_NHSS$income)^2
 
 
 
@@ -188,9 +196,9 @@ li_PCAres_NHSS <- list(
 # 3.2 PCA analysis
     # a vector to set max k components for each dependent
     li_PCAk_NHSS <- list(
-        illnessratio = 5,
-        illnessday = 5,
-        chronicratio = 5
+        illnessratio = 3,
+        illnessday = 4,
+        chronicratio = 4
     )
     # 3.2.1 run
     for(tmpYname in envNHSS$Ynames){
@@ -204,7 +212,8 @@ li_PCAres_NHSS <- list(
             # varmax()
         # print
         cat("Dependent: ",tmpYname,"\n")
-        print(  li_PCAres_NHSS[[tmpYname]]   )
+        print(  li_PCAres_NHSS[[tmpYname]]   ); cat("\n")
+        print(  li_PCAres_NHSS[[tmpYname]]$values )
         cat("\n----------------------\n")
     }
 # 3.2.2 output (openxlsx can make every element in a list as a sheet in excel)
@@ -222,27 +231,64 @@ openxlsx::write.xlsx(  tmp1  , paste(sep="",envNHSS$Output,"PCAloading_NHSS.xlsx
     
     
     
+
+
+# ------------------
+# 3.4 construct corresponding datasets
+# NOTE: because we use province other than city as individual fixed effects now, we need to manually construct a panel data frame
+li_Dat_NHSS <- list()  # dataset, for FIXED EFFECT MODELS
+li_DatPlm_NHSS <- list()  # plm indexed dataset, for RANDOM EFFECT MDOELS & POOLING (NO EFFECT) MODELS
+for(tmpYname in envNHSS$Ynames){
+    # extract principle components of current Y
+    tmp <- li_PCAres_NHSS[[tmpYname]]$scores
+    
+    # construct datasets for fixed effect models
+    li_Dat_NHSS[[tmpYname]] <- data.frame( df_NHSS[,c( envNHSS$flagT, envNHSS$flagCounty, tmpYname, envNHSS$Xcore )] , tmp )
+    li_Dat_NHSS[[tmpYname]] <- func_MatDesignFixEffect( li_Dat_NHSS[[tmpYname]], IndiName = envNHSS$flagCounty )
+    
+    # construct datasets for random effect models & pooling models
+    li_DatPlm_NHSS[[tmpYname]] <- plm::pdata.frame( data.frame( df_NHSS[,c( envNHSS$flagT, envNHSS$flagProv, tmpYname, envNHSS$Xcore )] , tmp ),
+                                                    index = c( envNHSS$flagProv, envNHSS$flagT ) )
+}
+
+
+
+
+
     
     
     
 # 3.2 construct a list to save the namelists of independents (Xcore + Pca) for every specification
-li_Xnames_NHSS <- list()
+li_XnamesFix_NHSS <- list()
+li_XnamesRan_NHSS <- list()
+
 for(tmpYname in envNHSS$Ynames){
-    li_Xnames_NHSS[[tmpYname]] <- c( envNHSS$Xcore, paste(sep="","RC", 1:li_PCAk_NHSS[[tmpYname]]  )  )
+    # for random effect mods
+    li_XnamesRan_NHSS[[tmpYname]] <- c( envNHSS$Xcore, paste(sep="","RC", 1:li_PCAk_NHSS[[tmpYname]]  )  )
+    # for fixed effect mods
+    tmp <- c( envNHSS$Xcore, base::setdiff( names(li_Dat_NHSS[[tmpYname]]), envNHSS$Ynames  )    )
+    tmp <- base::setdiff( tmp, envNHSS$flagT )
+    li_XnamesFix_NHSS[[tmpYname]] <- tmp
 }
-    
+
+
+
 
 # 3.3 construct final specifications
-li_Eq_NHSS <- list()
+li_EqFix_NHSS <- list()  # for fixed effect mods
+li_EqRan_NHSS <- list()  # for random effect mods
 for(tmpYname in envNHSS$Ynames){
     # final specifications: y ~ income + edu + PC1 + ...
-    li_Eq_NHSS[[tmpYname]] <- func_GetEq( tmpYname,  li_Xnames_NHSS[[tmpYname]]  ,
-                                          Intercept = TRUE, KeepStr = FALSE
-                                        )
+    li_EqFix_NHSS[[tmpYname]] <- func_GetEq( tmpYname,  li_XnamesFix_NHSS[[tmpYname]]  ,
+                                               Intercept = TRUE, KeepStr = FALSE
+    )
+    li_EqRan_NHSS[[tmpYname]] <- func_GetEq( tmpYname,  li_XnamesRan_NHSS[[tmpYname]]  ,
+                                               Intercept = TRUE, KeepStr = FALSE
+    )
     # print final specifications
-    print(li_Eq_NHSS[[tmpYname]]); cat("------------------------\n")
+    print(li_EqFix_NHSS[[tmpYname]]);print(li_EqRan_NHSS[[tmpYname]]);  
+    cat("------------------------\n")
 }
-    
 
 
 
@@ -252,28 +298,18 @@ for(tmpYname in envNHSS$Ynames){
 
 
 
-# 3.4 construct corresponding datasets
-li_Dat_NHSS <- list()  # general dataset
-li_DatPlm_NHSS <- list()  # plm indexed dataset
-for(tmpYname in envNHSS$Ynames){
-    # extract principle components of current Y
-    tmp <- li_PCAres_NHSS[[tmpYname]]$scores
-    # merge it with Y, Xcore, tags (indi, time)
-    li_Dat_NHSS[[tmpYname]] <- data.frame( df_NHSS[,c( envNHSS$flagT, envNHSS$flagCounty, tmpYname, envNHSS$Xcore )] , tmp )
-    li_DatPlm_NHSS[[tmpYname]] <- plm::pdata.frame( li_Dat_NHSS[[tmpYname]], index = c( envNHSS$flagCounty, envNHSS$flagT ) )
-}
-    
-    
 
-    
-    
-    
+
 # ---------------------------------------
 # SECTION 4: VIF computing
 cat("\nSection 4: VIF OF FINAL SPECIFICATIONS\n-----------------------------------------------\n")
 # NOTE: up to now, we have finished the variable selection for NHSS dataset;
 #       the results are saved in li_PCAk_NHSS, li_PCAres_NHSS, li_Eq_NHSS etc;
 #       then we compute VIF for each specification and print:
+# 
+# NOTE: in fact, we only need to compute the VIF of random-effect specifications
+# 
+
 cat("up to now, we have finished the variable selection for NHSS dataset.")
 cat("then we compute VIF for each specification and print:\n")
 # -------
@@ -282,13 +318,12 @@ for(tmpYname in envNHSS$Ynames){
     # get temp dataset
     tmp <- li_Dat_NHSS[[tmpYname]]
     # compute VIF
-    li_VIF_NHSS[[tmpYname]] <- car::vif( lm( li_Eq_NHSS[[tmpYname]], tmp ) )
+    li_VIF_NHSS[[tmpYname]] <- car::vif( lm( li_EqRan_NHSS[[tmpYname]], tmp ) )
     # print
     print(li_VIF_NHSS[[tmpYname]]); cat("----------------------------\n")
 }
 # output to xlsx
 openxlsx::write.xlsx( li_VIF_NHSS, paste(sep="",envNHSS$Output,"VIF_NHSS.xlsx") )
-
 
 
 

@@ -92,7 +92,7 @@ for(tmpYname in envCHARLS$Ynames){
 
 
 # -------------------------------------
-## SECTION: RANDOM INDIVIDUAL EFFECT MODEL & HAUSSMAN
+## SECTION: RANDOM INDIVIDUAL EFFECT MODEL 
 cat("\nSECTION: RANDOM INDIVIDUAL EFFECT MODEL")
 # --------------
 # 2.0 prepare collections
