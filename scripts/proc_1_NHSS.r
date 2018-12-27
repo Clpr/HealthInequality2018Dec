@@ -17,6 +17,7 @@ library(car)  # VIF
 library(plm)  # panel data models
 library(openxlsx)  # easy xlsx
 library(psych)  # easy PCA
+library(nlme)  # GLS
 source("./src/mathtools.r")
 source("./src/paneltools.r")
 

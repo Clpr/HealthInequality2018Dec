@@ -21,6 +21,7 @@ library(sqldf)  # sql api
 library(plm)  # panel data models
 library(openxlsx)  # easy xlsx IO
 library(psych)  # easiser PCA
+library(nlme)  # GLS
 source("./src/mathtools.r")
 source("./src/paneltools.r")
 # library(plyr)  # sql-like dataframe operations
