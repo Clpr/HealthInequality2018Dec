@@ -45,12 +45,12 @@ It solves some ... uhnnnnn .... *tricky* problems in data aggregation process.
 
 Users may use a provided SAS program (./data/CHARLSdat/H_CHARLS_Clean.sas) to easily reproduce our city-level dataset.
 The program is fully documentationed & commented in English.
-It was written in SAS 9.4 & used SAS/SQL module (I know some SAS releases do not provide this module, so, I specially figure out here).
+It was written in SAS 9.4 & used SAS/SQL module (I know some SAS releases do not provide this module, so, I specially figure out it here).
 
 Meanwhile, one thing important:
 because CHARLS always publish their datasets ONLY in Stata13 format, and SAS 9.4 cannot directly read it (it supports Stata12 format, though),
 I firstly converted the original .dta file to a SPSS file (.sav) then read it into SAS 9.4. SPSS format can keep all tags, formats and labels of the original data file; and if you try to directly convert .dta -> .sas7bdat, there are usually some problems of variable names & labels (unpredictable sometimes......).
-I did this job with the R package *haven* (yes, that ... "stupid" ... package ... but it works well! :) ).
+I did this job with the R package *haven* (yes, that ... "useless" ... package in some people's view ... but it works well! :) ).
 
 And, I will not attach the original CHARLS dataset in this project.
 One, because of the copyrights (you may freely register an account on the CHALRS website then apply for the dataset, quick and safe!);
