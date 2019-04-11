@@ -12,11 +12,15 @@ Readers may download it and run it to repeat our work.
 Documentations & comments are well-organized.
 If you have any concern or require more information, please let me know.
 
-The current version may be updated. It depends on our future amendements on the paper.
+This paper has been published whose citation is:
+> Jiang, Y., Zheng, H., & Zhao, T. (2019). Socioeconomic status and morbidity rate inequality in China: based on NHSS and CHARLS data. International journal of environmental research and public health, 16(2), 215.
 
-Tianhao (Clpr)
+Because I expect there is no more updating in the future, I archived this project.
+(But still open to discussion, please let me know through email)
 
-Dec 25 2018
+Tianhao Zhao (Clpr)
+
+Apr 11 2019
 
 --------------------------------------
 
@@ -50,11 +54,11 @@ It was written in SAS 9.4 & used SAS/SQL module (I know some SAS releases do not
 Meanwhile, one thing important:
 because CHARLS always publish their datasets ONLY in Stata13 format, and SAS 9.4 cannot directly read it (it supports Stata12 format, though),
 I firstly converted the original .dta file to a SPSS file (.sav) then read it into SAS 9.4. SPSS format can keep all tags, formats and labels of the original data file; and if you try to directly convert .dta -> .sas7bdat, there are usually some problems of variable names & labels (unpredictable sometimes......).
-I did this job with the R package *haven* (yes, that ... "useless" ... package in some people's view ... but it works well! :) ).
+I did this job with the R package *haven*.
 
 And, I will not attach the original CHARLS dataset in this project.
 One, because of the copyrights (you may freely register an account on the CHALRS website then apply for the dataset, quick and safe!);
-Another one, it is ... to big for a github project (.dta about 70MB, .sav about 300MB, but the original .zip downloaded is only 12MB! magic ...)
+Another one, it is ... too big and useless for a github project (.dta about 70MB, .sav about 300MB, but the original .zip downloaded is only 12MB! magic ...)
 
 
 
